@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  # Base de Datos PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: sgc-postgres
+    environment:
+      POSTGRES_USER: sgc_user
+      POSTGRES_PASSWORD: Sgc2024Secure
+      POSTGRES_DB: sgc_trazabilidad
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sgc-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sgc_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: sgc-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - sgc-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend FastAPI
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sgc-backend
+    environment:
+      DATABASE_URL: postgresql://sgc_user:Sgc2024Secure@postgres:5432/sgc_trazabilidad
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      SECRET_KEY: dev-secret-key-change-in-production
+      DEBUG: true
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - backend_models:/app/models
+      - backend_logs:/app/logs
+    networks:
+      - sgc-network
+    restart: unless-stopped
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sgc-celery
+    environment:
+      DATABASE_URL: postgresql://sgc_user:Sgc2024Secure@postgres:5432/sgc_trazabilidad
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - backend_models:/app/models
+      - backend_logs:/app/logs
+    networks:
+      - sgc-network
+    restart: unless-stopped
+    command: celery -A src.infrastructure.queues.celery_app worker --loglevel=info --concurrency=2
+
+  # Frontend Next.js
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sgc-frontend
+    environment:
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: dev-nextauth-secret
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000/ws
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - sgc-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  backend_models:
+  backend_logs:
+
+networks:
+  sgc-network:
+    driver: bridge
