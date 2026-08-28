@@ -14,12 +14,12 @@ services:
       - key: ENVIRONMENT
         value: "production"
       - key: ALLOWED_ORIGINS
-        value: "https://sgc-frontend.onrender.com,http://localhost:3000"
+        value: "https://sgc-calidad-pj.onrender.com,http://localhost:3000"
       - key: PYTHON_VERSION
         value: "3.11.7"
 
   - type: web
-    name: sgc-frontend
+    name: sgc-calidad-pj
     runtime: node
     plan: free
     rootDir: frontend
@@ -27,10 +27,10 @@ services:
     startCommand: npm start
     envVars:
       - key: NEXTAUTH_URL
-        value: "https://sgc-frontend.onrender.com"
+        value: "https://sgc-calidad-pj.onrender.com"
       - key: NEXTAUTH_SECRET
         generateValue: true
       - key: NEXT_PUBLIC_API_URL
-        value: "https://sgc-backend.onrender.com/api/v1"
+        value: "https://sgc-backend-iguf.onrender.com/api/v1"
       - key: NEXT_PUBLIC_APP_NAME
         value: "SGC-Trazabilidad"
