@@ -155,20 +155,54 @@ class Evaluacion:
 
 
 class CasoPrueba:
-    """Caso de prueba como evidencia de la evaluación realizada por el Analista."""
+    """Caso de prueba como evidencia de la evaluación realizada por el Analista.
 
-    def __init__(self, evaluacion: Evaluacion, nombre: str, resultado: str = "Pendiente"):
+    Tiene numeración correlativa automática, el flujo o componente revisado,
+    evidencias numeradas y el resultado de la prueba.
+    """
+
+    def __init__(self, evaluacion: Evaluacion, correlativo: str, flujo_componente: str, resultado: str = "Pendiente"):
         self.id = uuid4()
         self.evaluacion = evaluacion
-        self.nombre = nombre
+        self.correlativo = correlativo
+        self.flujo_componente = flujo_componente
         self.resultado = resultado
+        self.evidencias: List[EvidenciaCaso] = []
+        self.created_at = datetime.utcnow()
+
+    def agregar_evidencia(self, archivo: str, descripcion: str) -> "EvidenciaCaso":
+        correlativo = str(len(self.evidencias) + 1)
+        ev = EvidenciaCaso(self, correlativo, archivo, descripcion)
+        self.evidencias.append(ev)
+        return ev
+
+    def to_dict(self) -> dict:
+        return {
+            "id": str(self.id),
+            "correlativo": self.correlativo,
+            "flujo_componente": self.flujo_componente,
+            "resultado": self.resultado,
+            "evidencias": [e.to_dict() for e in self.evidencias],
+        }
+
+
+class EvidenciaCaso:
+    """Evidencia (archivo/imagen) asociada a un caso de prueba, con numeración correlativa."""
+
+    def __init__(self, caso: CasoPrueba, correlativo: str, archivo: str, descripcion: str):
+        self.id = uuid4()
+        self.caso = caso
+        self.correlativo = correlativo
+        self.archivo = archivo
+        self.descripcion = descripcion
         self.created_at = datetime.utcnow()
 
     def to_dict(self) -> dict:
         return {
             "id": str(self.id),
-            "nombre": self.nombre,
-            "resultado": self.resultado,
+            "correlativo": self.correlativo,
+            "archivo": self.archivo,
+            "descripcion": self.descripcion,
         }
 
 

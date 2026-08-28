@@ -30,8 +30,10 @@ interface Incidencia {
 
 interface CasoPrueba {
   id: string;
-  nombre: string;
+  correlativo: string;
+  flujo_componente: string;
   resultado: string;
+  evidencias: { id: string; archivo: string; descripcion: string }[];
 }
 
 interface Evaluacion {
@@ -62,8 +64,8 @@ const datosIniciales: Evaluacion[] = [
       },
     ],
     casos: [
-      { id: 'c1', nombre: 'Acceso con usuario válido', resultado: 'Paso' },
-      { id: 'c2', nombre: 'Guardar expediente con datos completos', resultado: 'Pendiente' },
+      { id: 'c1', correlativo: '1', flujo_componente: 'Acceso con usuario válido', resultado: 'Paso', evidencias: [{ id: 'cev1', archivo: 'evidencia_caso_1.png', descripcion: 'Pantalla de acceso correcta' }] },
+      { id: 'c2', correlativo: '2', flujo_componente: 'Guardar expediente con datos completos', resultado: 'Pendiente', evidencias: [] },
     ],
   },
   {
@@ -88,7 +90,7 @@ export default function EvaluacionesPage() {
   const [registrandoIncidencia, setRegistrandoIncidencia] = useState(false);
   const [incForm, setIncForm] = useState<Record<string, any>>({});
   const [nuevaEvidencia, setNuevaEvidencia] = useState({ archivo: '', descripcion: '' });
-  const [nuevoCaso, setNuevoCaso] = useState({ nombre: '', resultado: 'Pendiente' });
+  const [nuevoCaso, setNuevoCaso] = useState({ flujo_componente: '', resultado: 'Pendiente', evidencia_archivo: '', evidencia_descripcion: '' });
   const [registrandoCaso, setRegistrandoCaso] = useState(false);
 
   const actualizarEvaluacion = (id: string, fn: (e: Evaluacion) => Evaluacion) => {
@@ -137,11 +139,20 @@ export default function EvaluacionesPage() {
   };
 
   const guardarCaso = (evaluacionId: string) => {
-    if (!nuevoCaso.nombre) return;
+    if (!nuevoCaso.flujo_componente) return;
     actualizarEvaluacion(evaluacionId, (e) => ({
-      ...e, casos: [...e.casos, { id: String(Date.now()), ...nuevoCaso }],
+      ...e,
+      casos: [...e.casos, {
+        id: String(Date.now()),
+        correlativo: String((abierta || evaluaciones.find((x) => x.id === evaluacionId)!)?.casos.length + 1 || 1),
+        flujo_componente: nuevoCaso.flujo_componente,
+        resultado: nuevoCaso.resultado,
+        evidencias: nuevoCaso.evidencia_archivo
+          ? [{ id: String(Date.now()), archivo: nuevoCaso.evidencia_archivo, descripcion: nuevoCaso.evidencia_descripcion }]
+          : [],
+      }],
     }));
-    setNuevoCaso({ nombre: '', resultado: 'Pendiente' });
+    setNuevoCaso({ flujo_componente: '', resultado: 'Pendiente', evidencia_archivo: '', evidencia_descripcion: '' });
     setRegistrandoCaso(false);
   };
 
@@ -260,10 +271,18 @@ export default function EvaluacionesPage() {
                 <Typography variant="body2" color="text.secondary">Aún no hay casos de prueba para esta evaluación.</Typography>
               )}
               {abierta.casos.map((c) => (
-                <Box key={c.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.5 }}>
-                  <Typography variant="body2">{c.nombre}</Typography>
-                  <Chip size="small" label={c.resultado} color={c.resultado === 'Paso' ? 'success' : c.resultado === 'Fallo' ? 'error' : 'default'} />
-                </Box>
+                <Paper key={c.id} variant="outlined" sx={{ p: 1.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2"><strong>Caso {c.correlativo}:</strong> {c.flujo_componente}</Typography>
+                    <Chip size="small" label={c.resultado} color={c.resultado === 'Paso' ? 'success' : c.resultado === 'Fallo' ? 'error' : 'default'} />
+                  </Box>
+                  {c.evidencias.map((ev) => (
+                    <Box key={ev.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                      <ImageIcon fontSize="small" color="action" />
+                      <Typography variant="caption">{ev.archivo} · {ev.descripcion}</Typography>
+                    </Box>
+                  ))}
+                </Paper>
               ))}
             </Stack>
           )}
@@ -321,15 +340,19 @@ export default function EvaluacionesPage() {
         <DialogTitle>Registrar Caso de Prueba</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField fullWidth label="Nombre del caso *" value={nuevoCaso.nombre} onChange={(e) => setNuevoCaso({ ...nuevoCaso, nombre: e.target.value })} />
-            <TextField select fullWidth label="Resultado" value={nuevoCaso.resultado} onChange={(e) => setNuevoCaso({ ...nuevoCaso, resultado: e.target.value })}>
+            <TextField fullWidth label="Flujo o componente revisado *" value={nuevoCaso.flujo_componente} onChange={(e) => setNuevoCaso({ ...nuevoCaso, flujo_componente: e.target.value })} />
+            <TextField select fullWidth label="Resultado de la prueba" value={nuevoCaso.resultado} onChange={(e) => setNuevoCaso({ ...nuevoCaso, resultado: e.target.value })}>
               {['Pendiente', 'Paso', 'Fallo', 'Bloqueado'].map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
             </TextField>
+            <Divider />
+            <Typography variant="subtitle2">Evidencia (opcional)</Typography>
+            <TextField size="small" fullWidth label="Archivo / imagen" value={nuevoCaso.evidencia_archivo} onChange={(e) => setNuevoCaso({ ...nuevoCaso, evidencia_archivo: e.target.value })} />
+            <TextField size="small" fullWidth label="Descripción de la evidencia" value={nuevoCaso.evidencia_descripcion} onChange={(e) => setNuevoCaso({ ...nuevoCaso, evidencia_descripcion: e.target.value })} />
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRegistrandoCaso(false)}>Cancelar</Button>
-          <Button variant="contained" disabled={!nuevoCaso.nombre} onClick={() => abierta && guardarCaso(abierta.id)}>Registrar</Button>
+          <Button variant="contained" disabled={!nuevoCaso.flujo_componente} onClick={() => abierta && guardarCaso(abierta.id)}>Registrar</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -184,14 +184,32 @@ async def entregar_evaluacion(
 async def agregar_caso_prueba(
     trabajo_id: UUID,
     evaluacion_id: UUID,
-    nombre: str,
+    flujo_componente: str,
     resultado: str = "Pendiente",
     current_user = Depends(get_current_user),
 ):
     e = _buscar_evaluacion(trabajo_id, evaluacion_id)
-    caso = CasoPrueba(e, nombre, resultado)
+    correlativo = str(len(e.casos_prueba) + 1)
+    caso = CasoPrueba(e, correlativo, flujo_componente, resultado)
     e.agregar_caso_prueba(caso)
     return caso.to_dict()
+
+
+@router.post("/{trabajo_id}/evaluaciones/{evaluacion_id}/casos-prueba/{caso_id}/evidencias", status_code=status.HTTP_201_CREATED)
+async def agregar_evidencia_caso(
+    trabajo_id: UUID,
+    evaluacion_id: UUID,
+    caso_id: UUID,
+    archivo: str,
+    descripcion: str = "",
+    current_user = Depends(get_current_user),
+):
+    e = _buscar_evaluacion(trabajo_id, evaluacion_id)
+    caso = next((c for c in e.casos_prueba if c.id == caso_id), None)
+    if not caso:
+        raise HTTPException(status_code=404, detail="Caso de prueba no encontrado")
+    ev = caso.agregar_evidencia(archivo, descripcion)
+    return ev.to_dict()
 
 
 # ------------------------------------------------------------------
