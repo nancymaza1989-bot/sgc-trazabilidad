@@ -3,6 +3,7 @@ services:
     name: sgc-backend
     runtime: python
     plan: free
+    rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn src.main:app --host 0.0.0.0 --port $PORT
     envVars:
@@ -17,6 +18,7 @@ services:
     name: sgc-frontend
     runtime: node
     plan: free
+    rootDir: frontend
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
@@ -25,4 +27,4 @@ services:
       - key: NEXTAUTH_SECRET
         generateValue: true
       - key: NEXT_PUBLIC_API_URL
-        value: "https://sgc-backend.onrender.com/api/v1"
+        value: "https://sgc-backend-iguf.onrender.com/api/v1"
