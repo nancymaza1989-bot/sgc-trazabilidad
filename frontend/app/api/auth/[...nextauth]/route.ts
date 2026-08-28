@@ -1,7 +1,32 @@
-import NextAuth, { NextAuthOptions } from 'next-auth';
+import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
-const authOptions: NextAuthOptions = {
+declare module 'next-auth' {
+  interface Session {
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+      role?: string;
+    };
+  }
+  interface User {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+    role?: string;
+  }
+}
+
+declare module 'next-auth/jwt' {
+  interface JWT {
+    role?: string;
+  }
+}
+
+const authOptions: any = {
   providers: [
     CredentialsProvider({
       name: 'Credentials',
@@ -10,8 +35,7 @@ const authOptions: NextAuthOptions = {
         password: { label: 'Contraseña', type: 'password' },
       },
       async authorize(credentials) {
-        // Usuario de prueba
-        if (credentials?.email === 'admin@poderjudicial.gob.pe' && 
+        if (credentials?.email === 'admin@poderjudicial.gob.pe' &&
             credentials?.password === 'Admin2024#Secure') {
           return {
             id: '1',
@@ -25,14 +49,14 @@ const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: any) {
       if (user) {
         token.role = user.role;
       }
       return token;
     },
-    async session({ session, token }) {
-      session.user.role = token.role as string;
+    async session({ session, token }: any) {
+      session.user.role = token.role;
       return session;
     },
   },
