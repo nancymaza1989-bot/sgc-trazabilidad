@@ -7,6 +7,8 @@ from src.core.config import settings
 from src.core.logging import logger
 from src.interfaces.api.v1.router import router as api_v1_router
 from src.infrastructure.database.connection import init_db
+# Importar los modelos ANTES de init_db() para que create_all registre las tablas.
+import src.infrastructure.database.models.trabajo_model  # noqa: F401,E402
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

@@ -46,6 +46,33 @@ class Severidad(str, Enum):
     MEDIA = "Media"
     BAJA = "Baja"
 
+class PrioridadIncidencia(str, Enum):
+    """Prioridad del Formato de Incidencia del Poder Judicial: BAJO / MEDIO / ALTO."""
+    BAJO = "Bajo"
+    MEDIO = "Medio"
+    ALTO = "Alto"
+
+class TipoPase(str, Enum):
+    """Tipo de pase del Formato de Caso de Prueba (RA-105)."""
+    VERSION = "Versión"
+    PUNTUAL = "Puntual"
+    PRUEBAS_UNITARIAS = "Pruebas Unitarias"
+
+class ResultadoPrueba(str, Enum):
+    """Resultado del Formato de Caso de Prueba (RA-105)."""
+    APROBADO = "Aprobado"
+    RECHAZADO = "Rechazado"
+    OBSERVADO = "Observado"
+    PENDIENTE = "Pendiente"
+
+class MotorBD(str, Enum):
+    """Motor de base de datos del Formato de Incidencia."""
+    POSTGRESQL = "PostgreSQL"
+    MYSQL = "MySQL"
+    SQL_SERVER = "SQL Server"
+    ORACLE = "Oracle"
+    OTROS = "Otros"
+
 TRANSICIONES_INCIDENCIA = {
     EstadoIncidencia.REPORTADO: [EstadoIncidencia.ASIGNADO, EstadoIncidencia.CERRADO],
     EstadoIncidencia.ASIGNADO: [EstadoIncidencia.EN_ANALISIS, EstadoIncidencia.REABIERTO],

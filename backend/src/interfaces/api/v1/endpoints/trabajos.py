@@ -1,30 +1,75 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Optional
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
+import json
 
-from src.core.constants import EstadoEvaluacion, TipoAtencion, Prioridad, TipoError
-from src.domain.trabajos.entities import Trabajo, Evaluacion, Incidencia, CasoPrueba
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.core.constants import EstadoEvaluacion, TipoAtencion, Prioridad, TipoError, PrioridadIncidencia
 from src.core.dependencies import get_current_user
+from src.infrastructure.database.connection import get_db
+from src.infrastructure.database.models.trabajo_model import (
+    TrabajoModel,
+    EvaluacionModel,
+    CasoPruebaModel,
+    CasoPruebaItemModel,
+    EvidenciaCasoModel,
+    EvidenciaCasoItemModel,
+    IncidenciaModel,
+    EvidenciaModel,
+)
+from src.interfaces.api.v1.endpoints.serializers import (
+    trabajo_to_dict,
+    evaluacion_to_dict,
+    incidencia_to_dict,
+    caso_prueba_to_dict,
+    caso_item_to_dict,
+    evidencia_to_dict,
+)
 
 router = APIRouter()
 
-trabajos_db = []
+
+# ------------------------------------------------------------------
+# Utilidades de acceso a datos (modelos SQLAlchemy async)
+# ------------------------------------------------------------------
+
+async def _buscar_trabajo(db: AsyncSession, trabajo_id: UUID) -> TrabajoModel:
+    stmt = select(TrabajoModel).where(TrabajoModel.id == str(trabajo_id))
+    t = (await db.execute(stmt)).scalar_one_or_none()
+    if not t:
+        raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    return t
 
 
-def _buscar_trabajo(trabajo_id: UUID) -> Trabajo:
-    for t in trabajos_db:
-        if t.id == trabajo_id:
-            return t
-    raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+async def _buscar_evaluacion(db: AsyncSession, trabajo_id: UUID, evaluacion_id: UUID) -> EvaluacionModel:
+    t = await _buscar_trabajo(db, trabajo_id)
+    e = next((x for x in t.evaluaciones if x.id == str(evaluacion_id)), None)
+    if not e:
+        raise HTTPException(status_code=404, detail="Evaluación no encontrada")
+    return e
 
 
-def _buscar_evaluacion(trabajo_id: UUID, evaluacion_id: UUID) -> Evaluacion:
-    t = _buscar_trabajo(trabajo_id)
-    for e in t.evaluaciones:
-        if e.id == evaluacion_id:
-            return e
-    raise HTTPException(status_code=404, detail="Evaluación no encontrada")
+def _agregar_historial(e: EvaluacionModel, detalle: str) -> None:
+    items = []
+    if e.historial:
+        try:
+            items = json.loads(e.historial)
+        except (ValueError, TypeError):
+            items = []
+    if not isinstance(items, list):
+        items = []
+    items.append({"detalle": detalle, "fecha": datetime.utcnow().isoformat()})
+    e.historial = json.dumps(items, ensure_ascii=False)
+
+
+def _estado_valido(estado: str, entidad: str = "Estado") -> EstadoEvaluacion:
+    try:
+        return EstadoEvaluacion(estado)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"{entidad} inválido")
 
 
 # ------------------------------------------------------------------
@@ -41,6 +86,7 @@ async def crear_trabajo(
     documentacion: Optional[str] = None,
     fecha_recepcion: str = None,
     current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     try:
         tipo = TipoAtencion(tipo_atencion)
@@ -49,33 +95,39 @@ async def crear_trabajo(
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=400, detail=f"Valor inválido: {e}")
 
-    trabajo = Trabajo(
+    trabajo = TrabajoModel(
         numero_ticket=numero_ticket,
         proyecto=proyecto,
-        tipo_atencion=tipo,
-        prioridad=prio,
+        tipo_atencion=tipo.value,
+        prioridad=prio.value,
         instrucciones=instrucciones,
         documentacion=documentacion,
         fecha_recepcion=fecha_rec,
+        coordinador="Coordinador de Calidad",
     )
-    trabajos_db.append(trabajo)
-    return trabajo.to_dict()
+    db.add(trabajo)
+    await db.commit()
+    creado = (await db.execute(select(TrabajoModel).where(TrabajoModel.id == trabajo.id))).scalar_one()
+    return trabajo_to_dict(creado)
 
 
 @router.get("/")
 async def listar_trabajos(
     pendientes: Optional[bool] = None,
     current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    items = trabajos_db
+    stmt = select(TrabajoModel).order_by(TrabajoModel.created_at.desc())
+    items = list((await db.execute(stmt)).scalars().all())
     if pendientes:
-        items = [t for t in items if t.pendiente_asignacion]
-    return {"items": [t.to_dict() for t in items], "total": len(items)}
+        items = [t for t in items if len(t.evaluaciones) == 0]
+    return {"items": [trabajo_to_dict(t) for t in items], "total": len(items)}
 
 
 @router.get("/{trabajo_id}")
-async def obtener_trabajo(trabajo_id: UUID, current_user = Depends(get_current_user)):
-    return _buscar_trabajo(trabajo_id).to_dict()
+async def obtener_trabajo(trabajo_id: UUID, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    t = await _buscar_trabajo(db, trabajo_id)
+    return trabajo_to_dict(t)
 
 
 @router.patch("/{trabajo_id}")
@@ -89,26 +141,38 @@ async def actualizar_trabajo(
     documentacion: Optional[str] = None,
     fecha_recepcion: Optional[str] = None,
     current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    trabajo = _buscar_trabajo(trabajo_id)
-    campos = {}
-    if numero_ticket is not None: campos["numero_ticket"] = numero_ticket
-    if proyecto is not None: campos["proyecto"] = proyecto
-    if tipo_atencion is not None: campos["tipo_atencion"] = TipoAtencion(tipo_atencion)
-    if prioridad is not None: campos["prioridad"] = Prioridad(prioridad)
-    if instrucciones is not None: campos["instrucciones"] = instrucciones
-    if documentacion is not None: campos["documentacion"] = documentacion
-    if fecha_recepcion is not None: campos["fecha_recepcion"] = date.fromisoformat(fecha_recepcion)
-    trabajo.actualizar_campos(**campos)
-    return trabajo.to_dict()
+    trabajo = await _buscar_trabajo(db, trabajo_id)
+    try:
+        if numero_ticket is not None:
+            trabajo.numero_ticket = numero_ticket
+        if proyecto is not None:
+            trabajo.proyecto = proyecto
+        if tipo_atencion is not None:
+            trabajo.tipo_atencion = TipoAtencion(tipo_atencion).value
+        if prioridad is not None:
+            trabajo.prioridad = Prioridad(prioridad).value
+        if fecha_recepcion is not None:
+            trabajo.fecha_recepcion = date.fromisoformat(fecha_recepcion)
+    except (ValueError, KeyError) as e:
+        raise HTTPException(status_code=400, detail=f"Valor inválido: {e}")
+    if instrucciones is not None:
+        trabajo.instrucciones = instrucciones
+    if documentacion is not None:
+        trabajo.documentacion = documentacion
+    await db.commit()
+    creado = (await db.execute(select(TrabajoModel).where(TrabajoModel.id == str(trabajo_id)))).scalar_one()
+    return trabajo_to_dict(creado)
 
 
 @router.delete("/{trabajo_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def eliminar_trabajo(trabajo_id: UUID, current_user = Depends(get_current_user)):
-    t = _buscar_trabajo(trabajo_id)
+async def eliminar_trabajo(trabajo_id: UUID, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    t = await _buscar_trabajo(db, trabajo_id)
     if t.evaluaciones:
         raise HTTPException(status_code=400, detail="No se puede eliminar un trabajo con evaluaciones asignadas")
-    trabajos_db.remove(t)
+    await db.delete(t)
+    await db.commit()
 
 
 # ------------------------------------------------------------------
@@ -122,27 +186,45 @@ async def asignar_evaluacion(
     fecha_asignacion: str,
     fecha_programada_entrega: Optional[str] = None,
     current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    t = _buscar_trabajo(trabajo_id)
-    fecha_asig = date.fromisoformat(fecha_asignacion)
-    fecha_prog = date.fromisoformat(fecha_programada_entrega) if fecha_programada_entrega else None
-    ev = Evaluacion(t, analista, fecha_asig, fecha_prog)
-    t.evaluaciones.append(ev)
-    return ev.to_dict()
+    t = await _buscar_trabajo(db, trabajo_id)
+    try:
+        fecha_asig = date.fromisoformat(fecha_asignacion)
+        fecha_prog = date.fromisoformat(fecha_programada_entrega) if fecha_programada_entrega else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Fecha de asignación inválida")
+
+    ev = EvaluacionModel(
+        trabajo_id=t.id,
+        analista=analista,
+        fecha_asignacion=fecha_asig,
+        fecha_programada_entrega=fecha_prog,
+        estado=EstadoEvaluacion.EN_PROCESO.value,
+        historial=json.dumps(
+            [{"detalle": f"Asignada a {analista} el {fecha_asig.isoformat()}",
+              "fecha": datetime.utcnow().isoformat()}],
+            ensure_ascii=False,
+        ),
+    )
+    db.add(ev)
+    await db.commit()
+    creado = (await db.execute(select(EvaluacionModel).where(EvaluacionModel.id == ev.id))).scalar_one()
+    return evaluacion_to_dict(creado)
 
 
 @router.get("/{trabajo_id}/evaluaciones")
-async def listar_evaluaciones(trabajo_id: UUID, current_user = Depends(get_current_user)):
-    t = _buscar_trabajo(trabajo_id)
-    return {"items": [e.to_dict() for e in t.evaluaciones], "total": len(t.evaluaciones)}
+async def listar_evaluaciones(trabajo_id: UUID, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    t = await _buscar_trabajo(db, trabajo_id)
+    return {"items": [evaluacion_to_dict(e) for e in t.evaluaciones], "total": len(t.evaluaciones)}
 
 
 @router.get("/{trabajo_id}/evaluaciones/{evaluacion_id}")
-async def obtener_evaluacion(trabajo_id: UUID, evaluacion_id: UUID, current_user = Depends(get_current_user)):
-    e = _buscar_evaluacion(trabajo_id, evaluacion_id)
-    data = e.to_dict()
-    data["incidencias"] = [i.to_dict() for i in e.incidencias]
-    data["casos_prueba"] = [c.to_dict() for c in e.casos_prueba]
+async def obtener_evaluacion(trabajo_id: UUID, evaluacion_id: UUID, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    e = await _buscar_evaluacion(db, trabajo_id, evaluacion_id)
+    data = evaluacion_to_dict(e)
+    data["incidencias"] = [incidencia_to_dict(i) for i in e.incidencias]
+    data["casos_prueba"] = [caso_prueba_to_dict(c) for c in e.casos_prueba]
     return data
 
 
@@ -153,14 +235,15 @@ async def cambiar_estado_evaluacion(
     estado: str,
     detalle: str = "",
     current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    e = _buscar_evaluacion(trabajo_id, evaluacion_id)
-    try:
-        nuevo = EstadoEvaluacion(estado)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Estado inválido")
-    e.cambiar_estado(nuevo, detalle)
-    return e.to_dict()
+    e = await _buscar_evaluacion(db, trabajo_id, evaluacion_id)
+    nuevo = _estado_valido(estado)
+    e.estado = nuevo.value
+    _agregar_historial(e, f"Estado: {nuevo.value}. {detalle}")
+    await db.commit()
+    creado = (await db.execute(select(EvaluacionModel).where(EvaluacionModel.id == e.id))).scalar_one()
+    return evaluacion_to_dict(creado)
 
 
 @router.post("/{trabajo_id}/evaluaciones/{evaluacion_id}/entregar")
@@ -170,32 +253,131 @@ async def entregar_evaluacion(
     fecha_entrega: str,
     resultado: str = "",
     current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    e = _buscar_evaluacion(trabajo_id, evaluacion_id)
-    e.entregar(date.fromisoformat(fecha_entrega), resultado)
-    return e.to_dict()
+    e = await _buscar_evaluacion(db, trabajo_id, evaluacion_id)
+    try:
+        fecha_entrega_dt = date.fromisoformat(fecha_entrega)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Fecha de entrega inválida")
+    e.fecha_real_entrega = fecha_entrega_dt
+    e.resultado = resultado
+    e.estado = EstadoEvaluacion.ENTREGADO.value
+    _agregar_historial(e, f"Entregado el {fecha_entrega_dt.isoformat()}. Resultado: {resultado or 'N/P'}")
+    await db.commit()
+    creado = (await db.execute(select(EvaluacionModel).where(EvaluacionModel.id == e.id))).scalar_one()
+    return evaluacion_to_dict(creado)
 
 
 # ------------------------------------------------------------------
-# 3. CASOS DE PRUEBA (evidencias dentro de la evaluación)
+# 3. CASOS DE PRUEBA (Formato RA-105 dentro de la evaluación)
 # ------------------------------------------------------------------
 
 @router.post("/{trabajo_id}/evaluaciones/{evaluacion_id}/casos-prueba", status_code=status.HTTP_201_CREATED)
 async def agregar_caso_prueba(
     trabajo_id: UUID,
     evaluacion_id: UUID,
-    flujo_componente: str,
-    resultado: str = "Pendiente",
+    campo_componente: Optional[str] = None,
+    flujo_componente: Optional[str] = None,
+    resultado_prueba: Optional[str] = None,
+    resultado: Optional[str] = None,
+    numero_ticket: Optional[str] = None,
+    numero_caso: Optional[str] = None,
+    numero_acta_pase: Optional[str] = None,
+    tipo_pase: Optional[str] = None,
+    fecha_prueba: str = None,
+    observaciones: Optional[str] = None,
+    firma_analista: Optional[str] = None,
+    firma_supervisor: Optional[str] = None,
     current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    e = _buscar_evaluacion(trabajo_id, evaluacion_id)
+    e = await _buscar_evaluacion(db, trabajo_id, evaluacion_id)
     correlativo = str(len(e.casos_prueba) + 1)
-    caso = CasoPrueba(e, correlativo, flujo_componente, resultado)
-    e.agregar_caso_prueba(caso)
-    return caso.to_dict()
+    campo = (campo_componente or flujo_componente or "").strip()
+    resultado_final = resultado_prueba or resultado or "Pendiente"
+
+    if tipo_pase is None:
+        tipo_pase = {"Pase de versión": "Versión", "Pase puntual": "Puntual"}.get(e.trabajo.tipo_atencion, "Puntual")
+
+    try:
+        fecha_prueba_dt = date.fromisoformat(fecha_prueba) if fecha_prueba else date.today()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Fecha de prueba inválida")
+
+    caso = CasoPruebaModel(
+        evaluacion_id=e.id,
+        correlativo=correlativo,
+        numero_caso=numero_caso or correlativo,
+        numero_ticket=numero_ticket or e.trabajo.numero_ticket,
+        numero_acta_pase=numero_acta_pase,
+        nombre_analista=current_user.get("id"),
+        tipo_pase=tipo_pase,
+        fecha_prueba=fecha_prueba_dt,
+        flujo_componente=campo,
+        campo_componente=campo or None,
+        resultado=resultado_final,
+        resultado_prueba=resultado_final,
+        observaciones=observaciones,
+        firma_analista=firma_analista,
+        firma_supervisor=firma_supervisor,
+    )
+    db.add(caso)
+    await db.commit()
+    creado = (await db.execute(select(CasoPruebaModel).where(CasoPruebaModel.id == caso.id))).scalar_one()
+    return caso_prueba_to_dict(creado)
 
 
-@router.post("/{trabajo_id}/evaluaciones/{evaluacion_id}/casos-prueba/{caso_id}/evidencias", status_code=status.HTTP_201_CREATED)
+@router.post("/{trabajo_id}/evaluaciones/{evaluacion_id}/casos-prueba/{caso_id}/casos", status_code=status.HTTP_201_CREATED)
+async def agregar_caso_prueba_item(
+    trabajo_id: UUID,
+    evaluacion_id: UUID,
+    caso_id: UUID,
+    numero: Optional[str] = None,
+    descripcion: str = "",
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    e = await _buscar_evaluacion(db, trabajo_id, evaluacion_id)
+    caso = next((c for c in e.casos_prueba if c.id == str(caso_id)), None)
+    if not caso:
+        raise HTTPException(status_code=404, detail="Caso de prueba no encontrado")
+    numero_valor = numero or str(len(caso.casos) + 1)
+    item = CasoPruebaItemModel(caso_prueba_id=caso.id, numero=numero_valor, descripcion=descripcion)
+    db.add(item)
+    await db.commit()
+    creado = (await db.execute(select(CasoPruebaItemModel).where(CasoPruebaItemModel.id == item.id))).scalar_one()
+    return caso_item_to_dict(creado)
+
+
+@router.post("/{trabajo_id}/evaluaciones/{evaluacion_id}/casos-prueba/{caso_id}/casos/{caso_item_id}/evidencias",
+             status_code=status.HTTP_201_CREATED)
+async def agregar_evidencia_caso_item(
+    trabajo_id: UUID,
+    evaluacion_id: UUID,
+    caso_id: UUID,
+    caso_item_id: UUID,
+    archivo: str,
+    descripcion: str = "",
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    e = await _buscar_evaluacion(db, trabajo_id, evaluacion_id)
+    caso = next((c for c in e.casos_prueba if c.id == str(caso_id)), None)
+    if not caso:
+        raise HTTPException(status_code=404, detail="Caso de prueba no encontrado")
+    item = next((x for x in caso.casos if x.id == str(caso_item_id)), None)
+    if not item:
+        raise HTTPException(status_code=404, detail="Caso de prueba (ítem) no encontrado")
+    correlativo = str(len(item.evidencias) + 1)
+    ev = EvidenciaCasoItemModel(caso_item_id=item.id, correlativo=correlativo, archivo=archivo, descripcion=descripcion)
+    db.add(ev)
+    await db.commit()
+    return evidencia_to_dict(ev)
+
+
+@router.post("/{trabajo_id}/evaluaciones/{evaluacion_id}/casos-prueba/{caso_id}/evidencias",
+             status_code=status.HTTP_201_CREATED)
 async def agregar_evidencia_caso(
     trabajo_id: UUID,
     evaluacion_id: UUID,
@@ -203,57 +385,75 @@ async def agregar_evidencia_caso(
     archivo: str,
     descripcion: str = "",
     current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    e = _buscar_evaluacion(trabajo_id, evaluacion_id)
-    caso = next((c for c in e.casos_prueba if c.id == caso_id), None)
+    """Evidencia directa del documento RA-105 (compatibilidad con el flujo anterior)."""
+    e = await _buscar_evaluacion(db, trabajo_id, evaluacion_id)
+    caso = next((c for c in e.casos_prueba if c.id == str(caso_id)), None)
     if not caso:
         raise HTTPException(status_code=404, detail="Caso de prueba no encontrado")
-    ev = caso.agregar_evidencia(archivo, descripcion)
-    return ev.to_dict()
+    correlativo = str(len(caso.evidencias) + 1)
+    ev = EvidenciaCasoModel(caso_id=caso.id, correlativo=correlativo, archivo=archivo, descripcion=descripcion)
+    db.add(ev)
+    await db.commit()
+    return evidencia_to_dict(ev)
 
 
 # ------------------------------------------------------------------
-# 4. INCIDENCIAS / HALLAZGOS (DENTRO de una evaluación asignada)
+# 4. INCIDENCIAS / HALLAZGOS (Formato de Incidencia DENTRO de la evaluación)
 # ------------------------------------------------------------------
 
 @router.post("/{trabajo_id}/evaluaciones/{evaluacion_id}/incidencias", status_code=status.HTTP_201_CREATED)
 async def registrar_incidencia(
     trabajo_id: UUID,
     evaluacion_id: UUID,
+    numero_ticket: Optional[str] = None,
     codigo: Optional[str] = None,
     version: Optional[str] = None,
     tipo_error: str = "Otros",
     descripcion: str = "",
-    prioridad: str = "Media",
+    prioridad: str = "Medio",
     es_bloqueante: bool = False,
     base_datos: Optional[str] = None,
     motor_bd: Optional[str] = None,
+    firma_analista: Optional[str] = None,
     current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    e = _buscar_evaluacion(trabajo_id, evaluacion_id)
+    e = await _buscar_evaluacion(db, trabajo_id, evaluacion_id)
     try:
         tipo = TipoError(tipo_error)
     except ValueError:
         raise HTTPException(status_code=400, detail="Tipo de error inválido")
 
+    try:
+        prio = PrioridadIncidencia(prioridad).value
+    except ValueError:
+        prio = prioridad
+
     correlativo = str(len(e.incidencias) + 1)
-    inc = Incidencia(
-        evaluacion=e,
+    inc = IncidenciaModel(
+        evaluacion_id=e.id,
         correlativo=correlativo,
+        numero_ticket=numero_ticket or e.trabajo.numero_ticket,
         codigo=codigo,
         version=version,
-        tipo_error=tipo,
+        tipo_error=tipo.value,
         descripcion=descripcion,
-        prioridad=prioridad,
+        prioridad=prio,
         es_bloqueante=es_bloqueante,
         base_datos=base_datos,
         motor_bd=motor_bd,
+        firma_analista=firma_analista,
     )
-    e.agregar_incidencia(inc)
-    return inc.to_dict()
+    db.add(inc)
+    await db.commit()
+    creado = (await db.execute(select(IncidenciaModel).where(IncidenciaModel.id == inc.id))).scalar_one()
+    return incidencia_to_dict(creado)
 
 
-@router.post("/{trabajo_id}/evaluaciones/{evaluacion_id}/incidencias/{incidencia_id}/evidencias", status_code=status.HTTP_201_CREATED)
+@router.post("/{trabajo_id}/evaluaciones/{evaluacion_id}/incidencias/{incidencia_id}/evidencias",
+             status_code=status.HTTP_201_CREATED)
 async def agregar_evidencia(
     trabajo_id: UUID,
     evaluacion_id: UUID,
@@ -261,13 +461,17 @@ async def agregar_evidencia(
     archivo: str,
     descripcion: str = "",
     current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    e = _buscar_evaluacion(trabajo_id, evaluacion_id)
-    inc = next((i for i in e.incidencias if i.id == incidencia_id), None)
+    e = await _buscar_evaluacion(db, trabajo_id, evaluacion_id)
+    inc = next((i for i in e.incidencias if i.id == str(incidencia_id)), None)
     if not inc:
         raise HTTPException(status_code=404, detail="Incidencia no encontrada")
-    ev = inc.agregar_evidencia(archivo, descripcion)
-    return ev.to_dict()
+    correlativo = str(len(inc.evidencias) + 1)
+    ev = EvidenciaModel(incidencia_id=inc.id, correlativo=correlativo, archivo=archivo, descripcion=descripcion)
+    db.add(ev)
+    await db.commit()
+    return evidencia_to_dict(ev)
 
 
 # ------------------------------------------------------------------
@@ -275,15 +479,19 @@ async def agregar_evidencia(
 # ------------------------------------------------------------------
 
 @router.get("/dashboard/resumen")
-async def resumen_trabajos(current_user = Depends(get_current_user)):
-    total_trabajos = len(trabajos_db)
-    pendientes_asignacion = sum(1 for t in trabajos_db if t.pendiente_asignacion)
+async def resumen_trabajos(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    rows = list((await db.execute(select(TrabajoModel))).scalars().all())
+    total_trabajos = len(rows)
+    pendientes_asignacion = sum(1 for t in rows if len(t.evaluaciones) == 0)
 
-    todas_evaluaciones = [e for t in trabajos_db for e in t.evaluaciones]
+    todas_evaluaciones = [e for t in rows for e in t.evaluaciones]
     en_proceso = sum(1 for e in todas_evaluaciones if e.estado in (
-        EstadoEvaluacion.EN_PROCESO, EstadoEvaluacion.PENDIENTE_ENTREGA))
-    vencidos = sum(1 for e in todas_evaluaciones if e.es_vencido())
-    proximos = sum(1 for e in todas_evaluaciones if e.es_proximo_a_vencer())
+        EstadoEvaluacion.EN_PROCESO.value, EstadoEvaluacion.PENDIENTE_ENTREGA.value))
+    vencidos = sum(1 for e in todas_evaluaciones if e.fecha_programada_entrega and e.fecha_real_entrega is None
+                   and e.estado != EstadoEvaluacion.CERRADO.value and e.fecha_programada_entrega < date.today())
+    proximos = sum(1 for e in todas_evaluaciones if e.fecha_programada_entrega and e.fecha_real_entrega is None
+                   and e.estado != EstadoEvaluacion.CERRADO.value
+                   and 0 <= (e.fecha_programada_entrega - date.today()).days <= 3)
     entregados = sum(1 for e in todas_evaluaciones if e.fecha_real_entrega is not None)
 
     total_incidencias = sum(len(e.incidencias) for e in todas_evaluaciones)
@@ -296,8 +504,9 @@ async def resumen_trabajos(current_user = Depends(get_current_user)):
 
     estado_por_proyecto: dict = {}
     for e in todas_evaluaciones:
-        estado_por_proyecto.setdefault(e.trabajo.proyecto, {})[e.estado.value] = \
-            estado_por_proyecto.get(e.trabajo.proyecto, {}).get(e.estado.value, 0) + 1
+        estado_por_proyecto.setdefault(e.trabajo.proyecto, {})
+        estado_por_proyecto[e.trabajo.proyecto][e.estado] = \
+            estado_por_proyecto.get(e.trabajo.proyecto, {}).get(e.estado, 0) + 1
 
     return {
         "total_trabajos": total_trabajos,

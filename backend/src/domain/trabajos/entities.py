@@ -1,7 +1,13 @@
 from datetime import datetime, date
 from typing import Optional, List
 from uuid import UUID, uuid4
-from src.core.constants import EstadoEvaluacion, TipoAtencion, Prioridad, TipoError
+from src.core.constants import (
+    EstadoEvaluacion,
+    TipoAtencion,
+    Prioridad,
+    TipoError,
+    PrioridadIncidencia,
+)
 
 
 class Trabajo:
@@ -155,18 +161,103 @@ class Evaluacion:
 
 
 class CasoPrueba:
-    """Caso de prueba como evidencia de la evaluación realizada por el Analista.
+    """Documento/encabezado del Formato de Caso de Prueba (RA-105).
 
-    Tiene numeración correlativa automática, el flujo o componente revisado,
-    evidencias numeradas y el resultado de la prueba.
+    El Analista lo registra DENTRO de una evaluación asignada. Contiene una
+    lista dinámica de 'casos' (Caso #1, #2...) cada uno con sus evidencias,
+    más el resultado de la prueba y las firmas del Analista y del Supervisor
+    (Coordinador).
     """
 
-    def __init__(self, evaluacion: Evaluacion, correlativo: str, flujo_componente: str, resultado: str = "Pendiente"):
+    def __init__(
+        self,
+        evaluacion: Evaluacion,
+        correlativo: str,
+        flujo_componente: Optional[str] = None,
+        campo_componente: Optional[str] = None,
+        resultado: Optional[str] = None,
+        resultado_prueba: Optional[str] = None,
+        numero_ticket: Optional[str] = None,
+        numero_caso: Optional[str] = None,
+        numero_acta_pase: Optional[str] = None,
+        nombre_analista: Optional[str] = None,
+        tipo_pase: Optional[str] = None,
+        fecha_prueba: Optional[date] = None,
+        observaciones: Optional[str] = None,
+        firma_analista: Optional[str] = None,
+        firma_supervisor: Optional[str] = None,
+    ):
         self.id = uuid4()
         self.evaluacion = evaluacion
         self.correlativo = correlativo
-        self.flujo_componente = flujo_componente
-        self.resultado = resultado
+        # Nº de caso: correlativo numérico automático PERO editable.
+        self.numero_caso = numero_caso or correlativo
+        self.numero_ticket = numero_ticket or getattr(evaluacion.trabajo, "numero_ticket", None)
+        self.numero_acta_pase = numero_acta_pase
+        self.nombre_analista = nombre_analista
+        self.tipo_pase = tipo_pase
+        self.fecha_prueba = fecha_prueba or date.today()
+        # 'flujo_componente' se conserva como alias de compatibilidad de 'campo_componente'.
+        self.campo_componente = campo_componente or flujo_componente
+        self.flujo_componente = self.campo_componente
+        self.resultado_prueba = resultado_prueba or resultado or "Pendiente"
+        self.resultado = self.resultado_prueba
+        self.observaciones = observaciones
+        self.firma_analista = firma_analista
+        self.firma_supervisor = firma_supervisor
+        self.casos: List[Caso] = []
+        # Evidencias directas del documento (compatibilidad con el flujo anterior).
+        self.evidencias: List[EvidenciaCaso] = []
+        self.created_at = datetime.utcnow()
+        self.updated_at = datetime.utcnow()
+
+    def agregar_evidencia(self, archivo: str, descripcion: str) -> "EvidenciaCaso":
+        """Evidencia directa del documento RA-105 (compatibilidad)."""
+        correlativo = str(len(self.evidencias) + 1)
+        ev = EvidenciaCaso(self, correlativo, archivo, descripcion)
+        self.evidencias.append(ev)
+        return ev
+
+    def agregar_caso(self, descripcion: str, numero: Optional[str] = None) -> "Caso":
+        numero = numero or str(len(self.casos) + 1)
+        caso = Caso(self, numero, descripcion)
+        self.casos.append(caso)
+        self.updated_at = datetime.utcnow()
+        return caso
+
+    def to_dict(self) -> dict:
+        return {
+            "id": str(self.id),
+            "correlativo": self.correlativo,
+            "numero_caso": self.numero_caso,
+            "numero_ticket": self.numero_ticket,
+            "numero_acta_pase": self.numero_acta_pase,
+            "nombre_analista": self.nombre_analista,
+            "tipo_pase": self.tipo_pase,
+            "fecha_prueba": self.fecha_prueba.isoformat() if self.fecha_prueba else None,
+            "flujo_componente": self.campo_componente,
+            "campo_componente": self.campo_componente,
+            "resultado": self.resultado_prueba,
+            "resultado_prueba": self.resultado_prueba,
+            "observaciones": self.observaciones,
+            "firma_analista": self.firma_analista,
+            "firma_supervisor": self.firma_supervisor,
+            "evidencias": [e.to_dict() for e in self.evidencias],
+            "casos": [c.to_dict() for c in self.casos],
+        }
+
+
+class Caso:
+    """Caso de prueba DENTRO del documento RA-105 (lista dinámica).
+
+    Cada caso (Caso #1, #2...) tiene descripción y evidencias numeradas.
+    """
+
+    def __init__(self, caso_prueba: CasoPrueba, numero: str, descripcion: str = ""):
+        self.id = uuid4()
+        self.caso_prueba = caso_prueba
+        self.numero = numero
+        self.descripcion = descripcion
         self.evidencias: List[EvidenciaCaso] = []
         self.created_at = datetime.utcnow()
 
@@ -179,9 +270,8 @@ class CasoPrueba:
     def to_dict(self) -> dict:
         return {
             "id": str(self.id),
-            "correlativo": self.correlativo,
-            "flujo_componente": self.flujo_componente,
-            "resultado": self.resultado,
+            "numero": self.numero,
+            "descripcion": self.descripcion,
             "evidencias": [e.to_dict() for e in self.evidencias],
         }
 
@@ -218,18 +308,22 @@ class Incidencia:
         self,
         evaluacion: Evaluacion,
         correlativo: str,
-        codigo: Optional[str],
-        version: Optional[str],
-        tipo_error: TipoError,
-        descripcion: str,
-        prioridad: str = "Media",
+        numero_ticket: Optional[str] = None,
+        codigo: Optional[str] = None,
+        version: Optional[str] = None,
+        tipo_error: TipoError = TipoError.OTROS,
+        descripcion: str = "",
+        prioridad: str = PrioridadIncidencia.MEDIO.value,
         es_bloqueante: bool = False,
         base_datos: Optional[str] = None,
         motor_bd: Optional[str] = None,
+        firma_analista: Optional[str] = None,
     ):
         self.id = uuid4()
         self.evaluacion = evaluacion
         self.correlativo = correlativo
+        # El ticket normalmente se hereda de la evaluación, pero es editable.
+        self.numero_ticket = numero_ticket or getattr(evaluacion.trabajo, "numero_ticket", None)
         self.codigo = codigo
         self.version = version
         self.tipo_error = tipo_error
@@ -238,6 +332,7 @@ class Incidencia:
         self.es_bloqueante = es_bloqueante
         self.base_datos = base_datos
         self.motor_bd = motor_bd
+        self.firma_analista = firma_analista
         self.evidencias: List[Evidencia] = []
         self.created_at = datetime.utcnow()
 
@@ -254,13 +349,13 @@ class Incidencia:
             "correlativo": self.correlativo,
             "evaluacion_id": str(self.evaluacion.id),
             # Contexto heredado de la evaluación (NO ingresado por el analista):
-            "numero_ticket": t.numero_ticket,
+            "numero_ticket": self.numero_ticket,
             "proyecto": t.proyecto,
             "tipo_atencion": t.tipo_atencion.value,
             "analista": self.evaluacion.analista,
             "fecha_asignacion": self.evaluacion.fecha_asignacion.isoformat(),
             "fecha_programada_entrega": self.evaluacion.fecha_programada_entrega.isoformat() if self.evaluacion.fecha_programada_entrega else None,
-            # Datos propios del hallazgo:
+            # Datos propios del hallazgo (formulario real del Poder Judicial):
             "codigo": self.codigo,
             "version": self.version,
             "tipo_error": self.tipo_error.value,
@@ -269,6 +364,7 @@ class Incidencia:
             "es_bloqueante": self.es_bloqueante,
             "base_datos": self.base_datos,
             "motor_bd": self.motor_bd,
+            "firma_analista": self.firma_analista,
             "evidencias": [e.to_dict() for e in self.evidencias],
         }
 
