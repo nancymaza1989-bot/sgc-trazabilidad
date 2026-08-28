@@ -1,10 +1,8 @@
 from enum import Enum
 
-class EstadoTrabajo(str, Enum):
+class EstadoEvaluacion(str, Enum):
     PENDIENTE_ASIGNACION = "Pendiente de asignación"
-    ASIGNADO = "Asignado"
-    EN_REVISION = "En revisión"
-    EN_EVALUACION = "Proceso de evaluación"
+    EN_PROCESO = "Proceso de evaluación"
     PENDIENTE_ENTREGA = "Pendiente de entrega"
     ENTREGADO = "Entregado por el Analista"
     EN_VALIDACION = "En validación"
@@ -14,6 +12,16 @@ class TipoAtencion(str, Enum):
     PASE_VERSION = "Pase de versión"
     PASE_PUNTUAL = "Pase puntual"
     REQUERIMIENTO = "Requerimiento"
+
+class TipoError(str, Enum):
+    FUNCIONAL = "Funcional"
+    NO_FUNCIONAL = "No funcional"
+    BASE_DATOS = "Base de datos"
+    DISENO = "Diseño"
+    DOCUMENTACION = "Documentación"
+    DATA = "Data"
+    TABLAS_MAESTRAS = "Tablas maestras"
+    OTROS = "Otros"
 
 class EstadoIncidencia(str, Enum):
     REPORTADO = "Reportado"

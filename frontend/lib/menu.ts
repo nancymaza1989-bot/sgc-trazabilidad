@@ -8,6 +8,7 @@ export interface MenuItem {
 export const MENU_MODULOS: MenuItem[] = [
   { titulo: 'Dashboard', ruta: '/dashboard', icono: '📊', descripcion: 'Panel de control de la calidad (Coordinador)' },
   { titulo: 'Trabajos', ruta: '/trabajos', icono: '🎫', descripcion: 'Gestión de tickets, pases y requerimientos (Coordinador)' },
+  { titulo: 'Mis Evaluaciones', ruta: '/evaluaciones', icono: '🧾', descripcion: 'Trabajos asignados al Analista con su contexto precargado' },
   { titulo: 'Incidencias', ruta: '/incidencias', icono: '📋', descripcion: 'Incidencias como evidencias de la evaluación' },
   { titulo: 'Casos de Prueba', ruta: '/casos-prueba', icono: '🧪', descripcion: 'Casos de prueba como evidencias de la evaluación' },
   { titulo: 'Requerimientos', ruta: '/requerimientos', icono: '📝', descripcion: 'Seguimiento de requerimientos' },

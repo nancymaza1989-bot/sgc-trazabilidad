@@ -1,15 +1,14 @@
 from datetime import datetime, date
 from typing import Optional, List
 from uuid import UUID, uuid4
-from src.core.constants import EstadoTrabajo, TipoAtencion, Prioridad
+from src.core.constants import EstadoEvaluacion, TipoAtencion, Prioridad, TipoError
 
 
 class Trabajo:
-    """Entidad principal del proceso de Calidad.
+    """Entrada del proceso de Calidad, registrada por el Coordinador.
 
-    El Trabajo (Ticket, GLPI, Pase o Requerimiento) es la ENTRADA del proceso.
-    El Coordinador de Calidad lo registra, asigna al Analista y lo monitorea.
-    Las Incidencias y Casos de Prueba son resultados/evidencias de la evaluación.
+    Representa el pase, versión, pase puntual o requerimiento que el Coordinador
+    recibe por correo. Aún NO tiene asignación.
     """
 
     def __init__(
@@ -20,10 +19,7 @@ class Trabajo:
         prioridad: Prioridad,
         instrucciones: str,
         fecha_recepcion: date,
-        fecha_programada_entrega: Optional[date] = None,
         documentacion: Optional[str] = None,
-        analista_asignado: Optional[str] = None,
-        fecha_asignacion: Optional[date] = None,
         coordinador: str = "Coordinador de Calidad",
     ):
         self.id = uuid4()
@@ -34,82 +30,20 @@ class Trabajo:
         self.instrucciones = instrucciones
         self.documentacion = documentacion
         self.fecha_recepcion = fecha_recepcion
-        self.fecha_programada_entrega = fecha_programada_entrega
-        self.fecha_real_entrega = None
-        self.analista_asignado = analista_asignado
-        self.fecha_asignacion = fecha_asignacion
         self.coordinador = coordinador
-        self.estado = EstadoTrabajo.PENDIENTE_ASIGNACION
-        self.incidencias = []
-        self.casos_prueba = []
-        self.resultado_evaluacion = None
-        self.historial = []
         self.created_at = datetime.utcnow()
         self.updated_at = datetime.utcnow()
-        self._anotar_historial("Creación", f"Registrado por {coordinador}")
+        self.evaluaciones = []
 
-    def _anotar_historial(self, accion: str, detalle: str) -> None:
-        self.historial.append({
-            "accion": accion,
-            "detalle": detalle,
-            "fecha": datetime.utcnow().isoformat(),
-        })
-
-    def asignar_analista(self, analista: str, fecha_asignacion: date) -> None:
-        self.analista_asignado = analista
-        self.fecha_asignacion = fecha_asignacion
-        self.estado = EstadoTrabajo.ASIGNADO
-        self.updated_at = datetime.utcnow()
-        self._anotar_historial("Asignación", f"Asignado a {analista} el {fecha_asignacion}")
-
-    def cambiar_estado(self, nuevo_estado: EstadoTrabajo, detalle: str = "") -> None:
-        self.estado = nuevo_estado
-        self.updated_at = datetime.utcnow()
-        self._anotar_historial("Cambio de estado", f"Nuevo estado: {nuevo_estado.value}. {detalle}")
-
-    def registrar_entrega(self, fecha_entrega: date) -> None:
-        self.fecha_real_entrega = fecha_entrega
-        self.estado = EstadoTrabajo.ENTREGADO
-        self.updated_at = datetime.utcnow()
-        self._anotar_historial("Entrega", f"Entregado por el Analista el {fecha_entrega}")
-
-    def set_resultado_evaluacion(self, resultado: str) -> None:
-        self.resultado_evaluacion = resultado
-        self.updated_at = datetime.utcnow()
-        self._anotar_historial("Evaluación", f"Resultado de evaluación: {resultado}")
-
-    def agregar_incidencia(self, incidencia_id: str) -> None:
-        if incidencia_id not in self.incidencias:
-            self.incidencias.append(incidencia_id)
-        self.updated_at = datetime.utcnow()
-
-    def agregar_caso_prueba(self, caso_id: str) -> None:
-        if caso_id not in self.casos_prueba:
-            self.casos_prueba.append(caso_id)
-        self.updated_at = datetime.utcnow()
+    @property
+    def pendiente_asignacion(self) -> bool:
+        return len(self.evaluaciones) == 0
 
     def actualizar_campos(self, **campos) -> None:
-        editados = []
         for campo, valor in campos.items():
             if hasattr(self, campo) and getattr(self, campo) != valor:
                 setattr(self, campo, valor)
-                editados.append(campo)
         self.updated_at = datetime.utcnow()
-        if editados:
-            self._anotar_historial("Edición", f"Campos modificados: {', '.join(editados)}")
-
-    def es_vencido(self, hoy: date = None) -> bool:
-        hoy = hoy or date.today()
-        if self.fecha_programada_entrega and self.fecha_real_entrega is None:
-            return self.fecha_programada_entrega < hoy
-        return False
-
-    def es_proximo_a_vencer(self, hoy: date = None, dias: int = 3) -> bool:
-        hoy = hoy or date.today()
-        if self.fecha_programada_entrega and self.fecha_real_entrega is None and self.estado != EstadoTrabajo.CERRADO:
-            diferencia = (self.fecha_programada_entrega - hoy).days
-            return 0 <= diferencia <= dias
-        return False
 
     def to_dict(self) -> dict:
         return {
@@ -121,16 +55,205 @@ class Trabajo:
             "instrucciones": self.instrucciones,
             "documentacion": self.documentacion,
             "fecha_recepcion": self.fecha_recepcion.isoformat(),
+            "coordinador": self.coordinador,
+            "pendiente_asignacion": self.pendiente_asignacion,
+            "evaluaciones": [e.to_dict() for e in self.evaluaciones],
+        }
+
+
+class Evaluacion:
+    """Asignación de un Trabajo a un Analista de Calidad por parte del Coordinador.
+
+    Contiene el contexto heredado del trabajo (proyecto, ticket, tipo de pase,
+    fechas) más la asignación. Aquí el Analista registra sus hallazgos:
+    incidencias y casos de prueba (resultados/evidencias de la evaluación).
+    """
+
+    def __init__(
+        self,
+        trabajo: Trabajo,
+        analista: str,
+        fecha_asignacion: date,
+        fecha_programada_entrega: Optional[date] = None,
+        analista_id: Optional[str] = None,
+    ):
+        self.id = uuid4()
+        self.trabajo = trabajo
+        self.analista = analista
+        self.analista_id = analista_id
+        self.fecha_asignacion = fecha_asignacion
+        self.fecha_programada_entrega = fecha_programada_entrega
+        self.fecha_real_entrega = None
+        self.estado = EstadoEvaluacion.EN_PROCESO
+        self.resultado = None
+        self.incidencias: List[Incidencia] = []
+        self.casos_prueba: List[CasoPrueba] = []
+        self.historial = []
+        self.created_at = datetime.utcnow()
+        self.updated_at = datetime.utcnow()
+        self._anotar(f"Asignada a {analista} el {fecha_asignacion}")
+
+    def _anotar(self, detalle: str) -> None:
+        self.historial.append({"detalle": detalle, "fecha": datetime.utcnow().isoformat()})
+
+    def cambiar_estado(self, nuevo: EstadoEvaluacion, detalle: str = "") -> None:
+        self.estado = nuevo
+        self.updated_at = datetime.utcnow()
+        self._anotar(f"Estado: {nuevo.value}. {detalle}")
+
+    def entregar(self, fecha_entrega: date, resultado: str = "") -> None:
+        self.fecha_real_entrega = fecha_entrega
+        self.resultado = resultado
+        self.estado = EstadoEvaluacion.ENTREGADO
+        self.updated_at = datetime.utcnow()
+        self._anotar(f"Entregado el {fecha_entrega}. Resultado: {resultado or 'N/P'}")
+
+    def agregar_incidencia(self, incidencia: "Incidencia") -> None:
+        self.incidencias.append(incidencia)
+        self.updated_at = datetime.utcnow()
+        self._anotar(f"Se registró la incidencia {incidencia.correlativo}")
+
+    def agregar_caso_prueba(self, caso: "CasoPrueba") -> None:
+        self.casos_prueba.append(caso)
+        self.updated_at = datetime.utcnow()
+
+    def es_vencido(self, hoy: date = None) -> bool:
+        hoy = hoy or date.today()
+        return bool(self.fecha_programada_entrega and self.fecha_real_entrega is None
+                    and self.estado not in (EstadoEvaluacion.CERRADO,) and self.fecha_programada_entrega < hoy)
+
+    def es_proximo_a_vencer(self, hoy: date = None, dias: int = 3) -> bool:
+        hoy = hoy or date.today()
+        if self.fecha_programada_entrega and self.fecha_real_entrega is None and self.estado != EstadoEvaluacion.CERRADO:
+            d = (self.fecha_programada_entrega - hoy).days
+            return 0 <= d <= dias
+        return False
+
+    def to_dict(self) -> dict:
+        t = self.trabajo
+        return {
+            "id": str(self.id),
+            "trabajo_id": str(t.id),
+            "numero_ticket": t.numero_ticket,
+            "proyecto": t.proyecto,
+            "tipo_atencion": t.tipo_atencion.value,
+            "prioridad": t.prioridad.value,
+            "instrucciones": t.instrucciones,
+            "documentacion": t.documentacion,
+            "fecha_recepcion": t.fecha_recepcion.isoformat(),
+            "analista": self.analista,
+            "analista_id": self.analista_id,
+            "fecha_asignacion": self.fecha_asignacion.isoformat(),
             "fecha_programada_entrega": self.fecha_programada_entrega.isoformat() if self.fecha_programada_entrega else None,
             "fecha_real_entrega": self.fecha_real_entrega.isoformat() if self.fecha_real_entrega else None,
-            "analista_asignado": self.analista_asignado,
-            "fecha_asignacion": self.fecha_asignacion.isoformat() if self.fecha_asignacion else None,
-            "coordinador": self.coordinador,
             "estado": self.estado.value,
-            "incidencias": self.incidencias,
-            "casos_prueba": self.casos_prueba,
-            "resultado_evaluacion": self.resultado_evaluacion,
+            "resultado": self.resultado,
             "vencido": self.es_vencido(),
             "proximo_a_vencer": self.es_proximo_a_vencer(),
             "historial": self.historial,
+        }
+
+
+class CasoPrueba:
+    """Caso de prueba como evidencia de la evaluación realizada por el Analista."""
+
+    def __init__(self, evaluacion: Evaluacion, nombre: str, resultado: str = "Pendiente"):
+        self.id = uuid4()
+        self.evaluacion = evaluacion
+        self.nombre = nombre
+        self.resultado = resultado
+        self.created_at = datetime.utcnow()
+
+    def to_dict(self) -> dict:
+        return {
+            "id": str(self.id),
+            "nombre": self.nombre,
+            "resultado": self.resultado,
+        }
+
+
+class Incidencia:
+    """Hallazgo registrado por el Analista DENTRO de una evaluación asignada.
+
+    NO es el inicio del proceso: es un RESULTADO de la evaluación del Analista.
+    El contexto (proyecto, ticket, tipo, analista, fechas) se hereda de la
+    Evaluacion asignada por el Coordinador.
+    """
+
+    def __init__(
+        self,
+        evaluacion: Evaluacion,
+        correlativo: str,
+        codigo: Optional[str],
+        version: Optional[str],
+        tipo_error: TipoError,
+        descripcion: str,
+        prioridad: str = "Media",
+        es_bloqueante: bool = False,
+        base_datos: Optional[str] = None,
+        motor_bd: Optional[str] = None,
+    ):
+        self.id = uuid4()
+        self.evaluacion = evaluacion
+        self.correlativo = correlativo
+        self.codigo = codigo
+        self.version = version
+        self.tipo_error = tipo_error
+        self.descripcion = descripcion
+        self.prioridad = prioridad
+        self.es_bloqueante = es_bloqueante
+        self.base_datos = base_datos
+        self.motor_bd = motor_bd
+        self.evidencias: List[Evidencia] = []
+        self.created_at = datetime.utcnow()
+
+    def agregar_evidencia(self, archivo: str, descripcion: str) -> "Evidencia":
+        correlativo = str(len(self.evidencias) + 1)
+        ev = Evidencia(self, correlativo, archivo, descripcion)
+        self.evidencias.append(ev)
+        return ev
+
+    def to_dict(self) -> dict:
+        t = self.evaluacion.trabajo
+        return {
+            "id": str(self.id),
+            "correlativo": self.correlativo,
+            "evaluacion_id": str(self.evaluacion.id),
+            # Contexto heredado de la evaluación (NO ingresado por el analista):
+            "numero_ticket": t.numero_ticket,
+            "proyecto": t.proyecto,
+            "tipo_atencion": t.tipo_atencion.value,
+            "analista": self.evaluacion.analista,
+            "fecha_asignacion": self.evaluacion.fecha_asignacion.isoformat(),
+            "fecha_programada_entrega": self.evaluacion.fecha_programada_entrega.isoformat() if self.evaluacion.fecha_programada_entrega else None,
+            # Datos propios del hallazgo:
+            "codigo": self.codigo,
+            "version": self.version,
+            "tipo_error": self.tipo_error.value,
+            "descripcion": self.descripcion,
+            "prioridad": self.prioridad,
+            "es_bloqueante": self.es_bloqueante,
+            "base_datos": self.base_datos,
+            "motor_bd": self.motor_bd,
+            "evidencias": [e.to_dict() for e in self.evidencias],
+        }
+
+
+class Evidencia:
+    """Evidencia (archivo/imagen) asociada a una incidencia, con numeración correlativa."""
+
+    def __init__(self, incidencia: Incidencia, correlativo: str, archivo: str, descripcion: str):
+        self.id = uuid4()
+        self.incidencia = incidencia
+        self.correlativo = correlativo
+        self.archivo = archivo
+        self.descripcion = descripcion
+        self.created_at = datetime.utcnow()
+
+    def to_dict(self) -> dict:
+        return {
+            "id": str(self.id),
+            "correlativo": self.correlativo,
+            "archivo": self.archivo,
+            "descripcion": self.descripcion,
         }
