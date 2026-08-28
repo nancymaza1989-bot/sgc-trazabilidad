@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import List, Optional
+from pydantic import field_validator
 import os
 
 class Settings(BaseSettings):
@@ -32,6 +33,13 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FILE: str = "logs/app.log"
     
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def split_allowed_origins(cls, v):
+        if isinstance(v, str):
+            return [x.strip() for x in v.split(",") if x.strip()]
+        return v
+
     class Config:
         env_file = ".env"
         case_sensitive = True
