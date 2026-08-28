@@ -1,6 +1,5 @@
 from pydantic_settings import BaseSettings
 from typing import List, Optional
-from pydantic import field_validator
 import os
 
 class Settings(BaseSettings):
@@ -14,8 +13,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001"]
-    ALLOWED_HOSTS: List[str] = ["localhost"]
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
+    ALLOWED_HOSTS: str = "localhost"
     
     DATABASE_URL: str = "postgresql://sgc_user:Sgc2024Secure@localhost:5432/sgc_trazabilidad"
     DATABASE_POOL_SIZE: int = 20
@@ -33,30 +32,21 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FILE: str = "logs/app.log"
     
-    @field_validator("ALLOWED_ORIGINS", mode="before")
-    @classmethod
-    def split_allowed_origins(cls, v):
-        if isinstance(v, str):
-            return [x.strip() for x in v.split(",") if x.strip()]
-        return v
-
     class Config:
         env_file = ".env"
         case_sensitive = True
+    
+    @property
+    def allowed_origins_list(self) -> List[str]:
+        return [x.strip() for x in self.ALLOWED_ORIGINS.split(",") if x.strip()]
 
 settings = Settings()
 
 def get_database_url() -> str:
-    """Retorna la URL de la base de datos, usando SQLite si PostgreSQL no está disponible."""
-    db_url = os.getenv("DATABASE_URL", settings.DATABASE_URL)
-    if db_url and "postgresql" in db_url:
-        try:
-            import psycopg2
-            psycopg2.connect(db_url)
-            return db_url
-        except Exception:
-            pass
-    
+    """Retorna SQLite por defecto para despliegues sin PostgreSQL (Render free)."""
+    env_url = os.getenv("DATABASE_URL")
+    if env_url and not env_url.startswith("postgresql://sgc_user:Sgc2024Secure@localhost"):
+        return env_url
     sqlite_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "sgc.db")
     os.makedirs(os.path.dirname(sqlite_path), exist_ok=True)
     return f"sqlite:///{sqlite_path}"
