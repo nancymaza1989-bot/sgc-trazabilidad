@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-import jwt
+from jose import jwt
 from passlib.context import CryptContext
 from src.core.config import settings
 
