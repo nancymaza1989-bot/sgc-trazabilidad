@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
 import {
@@ -33,11 +33,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
 
+  useEffect(() => {
+    const token = (session as any)?.user?.access_token;
+    if (token) {
+      localStorage.setItem('access_token', token);
+    }
+    if (session === null && typeof window !== 'undefined' && !localStorage.getItem('access_token')) {
+      // sin sesión y sin token
+    }
+  }, [session]);
+
   const toggleDrawer = () => setOpen(!open);
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
   const handleLogout = async () => {
     handleClose();
+    localStorage.removeItem('access_token');
     await signOut({ callbackUrl: '/login' });
   };
 
@@ -65,6 +76,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {session?.user?.name || 'Usuario'} <br />
                 <Typography component="span" variant="caption" color="text.secondary">
                   {session?.user?.email}
+                </Typography>
+                <br />
+                <Typography component="span" variant="caption" color="primary" sx={{ textTransform: 'capitalize' }}>
+                  Rol: {session?.user?.role || '—'}
                 </Typography>
               </Typography>
             </MenuItem>

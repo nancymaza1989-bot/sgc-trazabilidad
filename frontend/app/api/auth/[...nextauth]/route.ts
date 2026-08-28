@@ -9,6 +9,7 @@ declare module 'next-auth' {
       email?: string | null;
       image?: string | null;
       role?: string;
+      access_token?: string;
     };
   }
   interface User {
@@ -17,14 +18,24 @@ declare module 'next-auth' {
     email?: string | null;
     image?: string | null;
     role?: string;
+    access_token?: string;
   }
 }
 
 declare module 'next-auth/jwt' {
   interface JWT {
     role?: string;
+    access_token?: string;
   }
 }
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
+const ROLES_API = {
+  administrador: 'administrador',
+  coordinador: 'coordinador',
+  analista: 'analista',
+};
 
 const authOptions: any = {
   providers: [
@@ -35,19 +46,44 @@ const authOptions: any = {
         password: { label: 'Contraseña', type: 'password' },
       },
       async authorize(credentials) {
-        const pass = (credentials?.password || '').trim();
         const email = (credentials?.email || '').trim().toLowerCase();
-        const emailValido = email === 'admin@poderjudicial.gob.pe';
-        const passValida = pass === 'Admin2024Secure' || pass === 'Admin2024#Secure';
-        if (emailValido && passValida) {
-          return {
-            id: '1',
-            name: 'Administrador',
-            email: 'admin@poderjudicial.gob.pe',
-            role: 'administrador',
-          };
+        const password = (credentials?.password || '').trim();
+
+        let resp: Response;
+        try {
+          resp = await fetch(`${API_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          });
+        } catch {
+          return null;
         }
-        return null;
+
+        if (!resp.ok) return null;
+
+        let data: any;
+        try {
+          data = await resp.json();
+        } catch {
+          return null;
+        }
+
+        const token = data?.access_token;
+        if (!token) return null;
+
+        // Determinar rol según el usuario logueado
+        let role = 'administrador';
+        if (email === 'coordinador@poderjudicial.gob.pe') role = 'coordinador';
+        else if (email === 'analista@poderjudicial.gob.pe') role = 'analista';
+
+        return {
+          id: 'api',
+          name: email.split('@')[0],
+          email,
+          role,
+          access_token: token,
+        };
       },
     }),
   ],
@@ -55,11 +91,13 @@ const authOptions: any = {
     async jwt({ token, user }: any) {
       if (user) {
         token.role = user.role;
+        token.access_token = user.access_token;
       }
       return token;
     },
     async session({ session, token }: any) {
       session.user.role = token.role;
+      session.user.access_token = token.access_token;
       return session;
     },
   },
