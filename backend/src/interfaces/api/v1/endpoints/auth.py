@@ -17,8 +17,14 @@ class LoginResponse(BaseModel):
 @router.post("/login", response_model=LoginResponse)
 async def login(data: LoginRequest):
     # Usuario de prueba - En producción, verificar en BD
-    if data.email == "admin@poderjudicial.gob.pe" and data.password == "Admin2024#Secure":
-        access_token = create_access_token({"sub": "admin", "rol": "administrador"})
+    usuarios = {
+        "admin@poderjudicial.gob.pe": {"password": "Admin2024Secure", "rol": "administrador", "id": "admin"},
+        "coordinador@poderjudicial.gob.pe": {"password": "Coord2024Secure", "rol": "coordinador", "id": "coord1"},
+        "analista@poderjudicial.gob.pe": {"password": "Analista2024Secure", "rol": "analista", "id": "anal1"},
+    }
+    usuario = usuarios.get(data.email)
+    if usuario and usuario["password"] == data.password:
+        access_token = create_access_token({"sub": usuario["id"], "rol": usuario["rol"]})
         return LoginResponse(access_token=access_token)
     raise HTTPException(status_code=401, detail="Credenciales inválidas")
 

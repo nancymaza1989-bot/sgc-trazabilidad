@@ -3,34 +3,47 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Box, Typography, Grid, Paper, CircularProgress, Chip } from '@mui/material';
+import { Box, Typography, Grid, Paper, CircularProgress, Chip, LinearProgress } from '@mui/material';
 import { KPICards } from '@/components/dashboard/KPICards';
 import { TrendChart } from '@/components/dashboard/TrendChart';
 
-const mockData = {
-  kpis: [
-    { nombre: 'Incidencias Abiertas', valor: 12, unidad: 'unidades', objetivo: 50, estado: 'excelente' },
-    { nombre: 'Tasa de Resolución', valor: 85.5, unidad: '%', objetivo: 80, estado: 'bueno' },
-    { nombre: 'MTTR', valor: 3.2, unidad: 'horas', objetivo: 4, estado: 'excelente' },
-    { nombre: 'Calidad ISO', valor: 82.5, unidad: '%', objetivo: 80, estado: 'bueno' },
-  ],
-  tendencias: [
-    { fechas: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'], valores: [5, 8, 3, 12, 7, 9], etiqueta: 'Nuevas' },
-    { fechas: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'], valores: [4, 6, 2, 10, 5, 8], etiqueta: 'Resueltas' },
-  ],
-  alertas: [
-    { nivel: 'Crítica', titulo: 'Servidor de producción con latencia alta' },
-    { nivel: 'Media', titulo: 'Tiempo de respuesta SLA excedido' },
-    { nivel: 'Info', titulo: 'Nueva versión v1.2.3 desplegada' },
-  ],
-  distribuciones: { estado: { Abiertas: 45, 'En curso': 30, Resueltas: 25 }, prioridad: { Crítica: 15, Alta: 25, Media: 40, Baja: 20 } },
-};
+const kpisCoordinador = [
+  { nombre: 'Trabajos Recibidos', valor: 18, unidad: 'total', objetivo: 25, estado: 'regular' },
+  { nombre: 'Pendientes Asignación', valor: 3, unidad: 'trabajos', objetivo: 0, estado: 'critico' },
+  { nombre: 'Trabajos Vencidos', valor: 1, unidad: 'trabajos', objetivo: 0, estado: 'critico' },
+  { nombre: 'Entregados (mes)', valor: 14, unidad: 'trabajos', objetivo: 20, estado: 'bueno' },
+];
+
+const tendencias = [
+  { fechas: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'], valores: [3, 5, 2, 4, 6], etiqueta: 'Recibidos' },
+  { fechas: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'], valores: [2, 3, 4, 2, 5], etiqueta: 'Entregados' },
+];
+
+const alertas = [
+  { nivel: 'Crítica', titulo: 'Trabajo GLPI-4489 vencido (Pase puntual)' },
+  { nivel: 'Media', titulo: 'Trabajo TKT-2103 próximo a vencer mañana' },
+  { nivel: 'Info', titulo: 'GLPI-4521 en proceso de evaluación por Ana Gómez' },
+];
+
+const cargaAnalistas = [
+  { nombre: 'Ana Gómez', carga: 5 },
+  { nombre: 'Juan Pérez', carga: 4 },
+  { nombre: 'Carlos Ruiz', carga: 3 },
+  { nombre: 'María López', carga: 3 },
+  { nombre: 'Luis Torres', carga: 2 },
+];
+
+const estadoProyecto = [
+  { proyecto: 'Sistema de Expedientes', estado: '4 en proceso · 2 cerrados' },
+  { proyecto: 'Portal Web', estado: '2 en proceso · 1 cerrado' },
+  { proyecto: 'SIGA', estado: '1 sin asignar' },
+  { proyecto: 'Firma Digital', estado: '1 en validación' },
+];
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState<any>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -38,28 +51,7 @@ export default function DashboardPage() {
       return;
     }
     if (status === 'authenticated') {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
-      fetch(`${apiUrl}/dashboard/general`, { cache: 'no-store' })
-        .then((res) => {
-          if (!res.ok) throw new Error('No disponible');
-          return res.json();
-        })
-        .then((data) => {
-          const kpis = (data.kpis || []).map((k: any) => ({
-            nombre: k.nombre, valor: k.valor, unidad: k.unidad,
-            objetivo: k.objetivo, estado: k.estado || 'bueno',
-          }));
-          const tendencias = (data.tendencias || []).map((t: any) => ({
-            fechas: t.fechas, valores: t.valores, etiqueta: t.etiqueta,
-          }));
-          setDashboardData({
-            kpis: kpis.length ? kpis : mockData.kpis,
-            tendencias: tendencias.length ? tendencias : mockData.tendencias,
-            alertas: data.alertas || mockData.alertas,
-          });
-        })
-        .catch(() => setDashboardData(mockData))
-        .finally(() => setLoading(false));
+      setLoading(false);
     }
   }, [status, router]);
 
@@ -71,34 +63,30 @@ export default function DashboardPage() {
     );
   }
 
+  const maxCarga = Math.max(...cargaAnalistas.map((c) => c.carga));
+
   return (
     <Box>
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" gutterBottom fontWeight="bold">
-          Dashboard General
-        </Typography>
+        <Typography variant="h4" fontWeight="bold">Dashboard del Coordinador</Typography>
         <Typography variant="subtitle1" color="text.secondary">
-          Bienvenido, {session?.user?.name || 'Usuario'} · {session?.user?.role || 'administrador'}
+          Bienvenido, {session?.user?.name || 'Coordinador'} · Monitoreo del ciclo de vida de los trabajos de calidad
         </Typography>
       </Box>
 
-      <KPICards kpis={dashboardData?.kpis || []} />
+      <KPICards kpis={kpisCoordinador} />
 
       <Grid container spacing={3} sx={{ mt: 1 }}>
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 3, borderRadius: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Tendencia de Incidencias
-            </Typography>
-            <TrendChart data={dashboardData?.tendencias || []} />
+            <Typography variant="h6" gutterBottom>Trabajos recibidos vs. entregados</Typography>
+            <TrendChart data={tendencias} />
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 3, borderRadius: 2, mb: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Alertas Recientes
-            </Typography>
-            {(dashboardData?.alertas || []).map((a: any, i: number) => (
+            <Typography variant="h6" gutterBottom>Alertas</Typography>
+            {alertas.map((a, i) => (
               <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 <Chip size="small" label={a.nivel} color={a.nivel === 'Crítica' ? 'error' : a.nivel === 'Media' ? 'warning' : 'info'} />
                 <Typography variant="body2">{a.titulo}</Typography>
@@ -106,18 +94,38 @@ export default function DashboardPage() {
             ))}
           </Paper>
           <Paper sx={{ p: 3, borderRadius: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Resumen Rápido
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Total de incidencias: 45
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Abiertas: 12
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Resueltas este mes: 32
-            </Typography>
+            <Typography variant="h6" gutterBottom>Resumen de calidad</Typography>
+            <Typography variant="body2" color="text.secondary">Incidencias encontradas: 12</Typography>
+            <Typography variant="body2" color="text.secondary">Casos de prueba ejecutados: 45</Typography>
+            <Typography variant="body2" color="text.secondary">Tasa de éxito: 88%</Typography>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, borderRadius: 2 }}>
+            <Typography variant="h6" gutterBottom>Distribución de carga por Analista</Typography>
+            {cargaAnalistas.map((a) => (
+              <Box key={a.nombre} sx={{ mb: 1.5 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2">{a.nombre}</Typography>
+                  <Typography variant="body2" fontWeight="bold">{a.carga} trabajos</Typography>
+                </Box>
+                <LinearProgress variant="determinate" value={(a.carga / maxCarga) * 100} sx={{ height: 8, borderRadius: 4 }} />
+              </Box>
+            ))}
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, borderRadius: 2 }}>
+            <Typography variant="h6" gutterBottom>Estado de los trabajos por proyecto</Typography>
+            {estadoProyecto.map((p) => (
+              <Box key={p.proyecto} sx={{ display: 'flex', justifyContent: 'space-between', py: 1, borderBottom: '1px solid #e2e8f0' }}>
+                <Typography variant="body2" fontWeight="bold">{p.proyecto}</Typography>
+                <Typography variant="body2" color="text.secondary">{p.estado}</Typography>
+              </Box>
+            ))}
           </Paper>
         </Grid>
       </Grid>

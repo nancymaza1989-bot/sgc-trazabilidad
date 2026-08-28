@@ -6,10 +6,11 @@ export interface MenuItem {
 }
 
 export const MENU_MODULOS: MenuItem[] = [
-  { titulo: 'Dashboard', ruta: '/dashboard', icono: '📊', descripcion: 'Panel de control con KPIs y métricas' },
-  { titulo: 'Incidencias', ruta: '/incidencias', icono: '📋', descripcion: 'Gestión de incidencias y tickets' },
-  { titulo: 'Requerimientos', ruta: '/requerimientos', icono: '📝', descripcion: 'Levantamiento y seguimiento de requerimientos' },
-  { titulo: 'Casos de Prueba', ruta: '/casos-prueba', icono: '🧪', descripcion: 'Casos y ejecución de pruebas' },
+  { titulo: 'Dashboard', ruta: '/dashboard', icono: '📊', descripcion: 'Panel de control de la calidad (Coordinador)' },
+  { titulo: 'Trabajos', ruta: '/trabajos', icono: '🎫', descripcion: 'Gestión de tickets, pases y requerimientos (Coordinador)' },
+  { titulo: 'Incidencias', ruta: '/incidencias', icono: '📋', descripcion: 'Incidencias como evidencias de la evaluación' },
+  { titulo: 'Casos de Prueba', ruta: '/casos-prueba', icono: '🧪', descripcion: 'Casos de prueba como evidencias de la evaluación' },
+  { titulo: 'Requerimientos', ruta: '/requerimientos', icono: '📝', descripcion: 'Seguimiento de requerimientos' },
   { titulo: 'Versiones', ruta: '/versiones', icono: '📦', descripcion: 'Gestión de versiones y despliegues' },
   { titulo: 'Monitoreo', ruta: '/monitoreo', icono: '📈', descripcion: 'Cuadro de mando, alertas y métricas' },
   { titulo: 'Calidad ISO', ruta: '/calidad-iso', icono: '⭐', descripcion: 'Evaluación ISO/IEC 25010' },

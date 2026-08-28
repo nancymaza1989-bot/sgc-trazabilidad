@@ -8,17 +8,17 @@ interface CasoPrueba {
   titulo: string;
   prioridad: string;
   estado: string;
-  requerimiento: string;
+  trabajo: string;
   ejecutor: string;
 }
 
 const casos: CasoPrueba[] = [
-  { id: 'CP-001', titulo: 'Verificar login con credenciales válidas', prioridad: 'Alta', estado: 'Aprobado', requerimiento: 'REQ-001', ejecutor: 'María López' },
-  { id: 'CP-002', titulo: 'Validar exportación a Excel', prioridad: 'Media', estado: 'Fallido', requerimiento: 'REQ-003', ejecutor: 'Juan Pérez' },
-  { id: 'CP-003', titulo: 'Probar recuperación de contraseña', prioridad: 'Alta', estado: 'Pendiente', requerimiento: 'REQ-001', ejecutor: 'Ana Gómez' },
-  { id: 'CP-004', titulo: 'Verificar notificación por correo', prioridad: 'Media', estado: 'En ejecución', requerimiento: 'REQ-005', ejecutor: 'Luis Torres' },
-  { id: 'CP-005', titulo: 'Validar formato de reporte PDF', prioridad: 'Alta', estado: 'Aprobado', requerimiento: 'REQ-004', ejecutor: 'María López' },
-  { id: 'CP-006', titulo: 'Probar integración con firma digital', prioridad: 'Crítica', estado: 'Bloqueado', requerimiento: 'REQ-002', ejecutor: 'Carlos Ruiz' },
+  { id: 'CP-001', titulo: 'Verificar login con credenciales válidas', prioridad: 'Alta', estado: 'Aprobado', trabajo: 'GLPI-4521', ejecutor: 'María López' },
+  { id: 'CP-002', titulo: 'Validar exportación a Excel', prioridad: 'Media', estado: 'Fallido', trabajo: 'TKT-2103', ejecutor: 'Juan Pérez' },
+  { id: 'CP-003', titulo: 'Probar recuperación de contraseña', prioridad: 'Alta', estado: 'Pendiente', trabajo: 'TKT-1855', ejecutor: 'Ana Gómez' },
+  { id: 'CP-004', titulo: 'Verificar notificación por correo', prioridad: 'Media', estado: 'En ejecución', trabajo: 'GLPI-4320', ejecutor: 'Luis Torres' },
+  { id: 'CP-005', titulo: 'Validar formato de reporte PDF', prioridad: 'Alta', estado: 'Aprobado', trabajo: 'TKT-1998', ejecutor: 'María López' },
+  { id: 'CP-006', titulo: 'Probar integración con firma digital', prioridad: 'Crítica', estado: 'Bloqueado', trabajo: 'GLPI-4489', ejecutor: 'Carlos Ruiz' },
 ];
 
 const estadoColor: Record<string, string> = {
@@ -31,15 +31,15 @@ export default function CasosPruebaPage() {
     { key: 'titulo', label: 'Título' },
     { key: 'prioridad', label: 'Prioridad' },
     { key: 'estado', label: 'Estado', badge: (v) => estadoColor[v] || 'default' },
-    { key: 'requerimiento', label: 'Requerimiento' },
+    { key: 'trabajo', label: 'Trabajo / Ticket' },
     { key: 'ejecutor', label: 'Ejecutor' },
   ];
 
   return (
     <Box>
       <DataTable
-        title="Casos de Prueba"
-        subtitle="CRUD de casos de prueba y registro de ejecución"
+        title="Casos de Prueba (Evidencias de Evaluación)"
+        subtitle="Casos de prueba ejecutados durante la evaluación de los trabajos de calidad"
         columns={columns}
         data={casos}
         searchPlaceholder="Buscar caso de prueba..."
@@ -47,6 +47,7 @@ export default function CasosPruebaPage() {
         filters={[
           { key: 'estado', label: 'Estado', values: Object.keys(estadoColor) },
           { key: 'prioridad', label: 'Prioridad', values: ['Crítica', 'Alta', 'Media', 'Baja'] },
+          { key: 'trabajo', label: 'Trabajo', values: ['GLPI-4521', 'TKT-2103', 'GLPI-4489', 'TKT-1998', 'GLPI-4320', 'TKT-1855'] },
         ]}
       />
       <Paper sx={{ p: 3, borderRadius: 2, mt: 2 }}>
