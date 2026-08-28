@@ -35,8 +35,9 @@ const authOptions: any = {
         password: { label: 'Contraseña', type: 'password' },
       },
       async authorize(credentials) {
+        const pass = credentials?.password;
         if (credentials?.email === 'admin@poderjudicial.gob.pe' &&
-            credentials?.password === 'Admin2024#Secure') {
+            (pass === 'Admin2024Secure' || pass === 'Admin2024#Secure')) {
           return {
             id: '1',
             name: 'Administrador',

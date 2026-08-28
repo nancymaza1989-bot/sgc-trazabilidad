@@ -85,7 +85,7 @@ export default function LoginPage() {
           </form>
 
           <Typography variant="body2" align="center" sx={{ mt: 2, color: 'text.secondary' }}>
-            Usuario: admin@poderjudicial.gob.pe | Contraseña: Admin2024#Secure
+            Usuario: admin@poderjudicial.gob.pe | Contraseña: Admin2024Secure
           </Typography>
         </Paper>
       </Container>
