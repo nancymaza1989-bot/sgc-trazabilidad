@@ -372,9 +372,9 @@ async def crear_asignacion(
     for miembro in grupo:
         db.add(AsignacionAnalistaModel(asignacion_id=asignacion.id, analista=miembro))
 
-    # Vincular los tickets a la asignación
+    # Vincular los tickets a la asignación (tabla puente asignacion_trabajos)
     for t in trabajos:
-        t.asignacion_id = asignacion.id
+        asignacion.trabajos.append(t)
 
     await db.commit()
     creado = (await db.execute(select(AsignacionModel).where(AsignacionModel.id == asignacion.id))).scalar_one()

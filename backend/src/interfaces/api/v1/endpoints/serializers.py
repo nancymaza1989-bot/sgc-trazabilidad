@@ -154,7 +154,7 @@ def trabajo_to_dict(t) -> dict:
         "documentacion": t.documentacion,
         "fecha_recepcion": _fecha_iso(t.fecha_recepcion),
         "coordinador": t.coordinador,
-        "asignacion_id": t.asignacion_id,
+        "asignacion_id": t.asignaciones[0].id if getattr(t, "asignaciones", []) else None,
         "pendiente_asignacion": len(t.evaluaciones) == 0,
         "adjuntos": adjuntos,
         "evaluaciones": [evaluacion_to_dict(e) for e in t.evaluaciones],

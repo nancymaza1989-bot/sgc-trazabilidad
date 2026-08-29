@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, DateTime, Boolean, Date, ForeignKey, Integer
+from sqlalchemy import Column, String, Text, DateTime, Boolean, Date, ForeignKey, Integer, Table
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
@@ -23,7 +23,6 @@ class TrabajoModel(Base):
     documentacion = Column(Text, nullable=True)
     fecha_recepcion = Column(Date, nullable=True)
     coordinador = Column(String(255), nullable=True, default="Coordinador de Calidad")
-    asignacion_id = Column(String(36), ForeignKey("asignaciones.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
@@ -32,7 +31,6 @@ class TrabajoModel(Base):
                                 cascade="all, delete-orphan", lazy="selectin")
     adjuntos = relationship("AdjuntoTrabajoModel", back_populates="trabajo",
                             cascade="all, delete-orphan", lazy="selectin")
-    asignacion = relationship("AsignacionModel", back_populates="trabajos", lazy="selectin")
 
 
 class EvaluacionModel(Base):
@@ -163,11 +161,18 @@ class AdjuntoTrabajoModel(Base):
     trabajo = relationship("TrabajoModel", back_populates="adjuntos", lazy="selectin")
 
 
+asignacion_trabajos = Table(
+    "asignacion_trabajos",
+    Base.metadata,
+    Column("asignacion_id", String(36), ForeignKey("asignaciones.id", ondelete="CASCADE"), primary_key=True),
+    Column("trabajo_id", String(36), ForeignKey("trabajos.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
 class AsignacionModel(Base):
     """Asignación de pase de versión: analista encargado + grupo de analistas + varios tickets."""
 
     __tablename__ = "asignaciones"
-
     id = Column(String(36), primary_key=True, default=_uuid)
     nombre = Column(String(255), nullable=True)
     analista_encargado = Column(String(255), nullable=False)
@@ -178,7 +183,8 @@ class AsignacionModel(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    trabajos = relationship("TrabajoModel", back_populates="asignacion", lazy="selectin")
+    trabajos = relationship("TrabajoModel", secondary=asignacion_trabajos,
+                            backref="asignaciones", lazy="selectin")
     analistas = relationship("AsignacionAnalistaModel", back_populates="asignacion",
                              cascade="all, delete-orphan", lazy="selectin")
 
