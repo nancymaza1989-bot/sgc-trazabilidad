@@ -2,7 +2,7 @@
 
 import { Box, Breadcrumbs, Link as MuiLink, Stack, Typography, useMediaQuery, useTheme } from '@mui/material';
 import Link from 'next/link';
-import { LOGO_BALANZA } from '@/lib/theme';
+import { LOGO_BALANZA, PJ_COLORS } from '@/lib/theme';
 
 export function PageBreadcrumb({ items }: { items: { label: string; href?: string }[] }) {
   return (
@@ -41,7 +41,7 @@ export default function PageHeader({ titulo, descripcion, breadcrumb, actions }:
       sx={{
         mb: 2.5,
         pb: 2,
-        borderBottom: '3px solid #0d47a1',
+        borderBottom: `3px solid ${PJ_COLORS.primary}`,
       }}
     >
       {breadcrumb && <PageBreadcrumb items={breadcrumb} />}
@@ -55,7 +55,7 @@ export default function PageHeader({ titulo, descripcion, breadcrumb, actions }:
           <Typography
             variant={isMobile ? 'h5' : 'h4'}
             fontWeight="bold"
-            sx={{ color: '#0d47a1', display: 'flex', alignItems: 'center', gap: 1 }}
+            sx={{ color: PJ_COLORS.primary, display: 'flex', alignItems: 'center', gap: 1 }}
           >
             {titulo}
           </Typography>

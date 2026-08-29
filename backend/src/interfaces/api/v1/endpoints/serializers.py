@@ -133,6 +133,17 @@ def evaluacion_to_dict(e) -> dict:
 
 
 def trabajo_to_dict(t) -> dict:
+    adjuntos = []
+    for a in t.adjuntos or []:
+        adjuntos.append({
+            "id": a.id,
+            "nombre": a.nombre,
+            "tipo_mime": a.tipo_mime,
+            "tamano": a.tamano,
+            "archivo": a.archivo,
+            "descripcion": a.descripcion,
+            "created_at": _fecha_iso(a.created_at),
+        })
     return {
         "id": t.id,
         "numero_ticket": t.numero_ticket,
@@ -143,6 +154,30 @@ def trabajo_to_dict(t) -> dict:
         "documentacion": t.documentacion,
         "fecha_recepcion": _fecha_iso(t.fecha_recepcion),
         "coordinador": t.coordinador,
+        "asignacion_id": t.asignacion_id,
         "pendiente_asignacion": len(t.evaluaciones) == 0,
+        "adjuntos": adjuntos,
         "evaluaciones": [evaluacion_to_dict(e) for e in t.evaluaciones],
+    }
+
+
+def proyecto_to_dict(p) -> dict:
+    return {
+        "id": p.id,
+        "nombre": p.nombre,
+        "activo": p.activo,
+    }
+
+
+def asignacion_to_dict(a) -> dict:
+    return {
+        "id": a.id,
+        "nombre": a.nombre,
+        "analista_encargado": a.analista_encargado,
+        "fecha_asignacion": _fecha_iso(a.fecha_asignacion),
+        "fecha_programada_entrega": _fecha_iso(a.fecha_programada_entrega),
+        "estado": a.estado,
+        "observaciones": a.observaciones,
+        "analistas": [{"id": x.id, "analista": x.analista} for x in a.analistas or []],
+        "trabajos": [trabajo_to_dict(t) for t in a.trabajos or []],
     }

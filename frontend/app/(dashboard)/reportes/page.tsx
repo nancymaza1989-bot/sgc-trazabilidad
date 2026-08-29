@@ -31,7 +31,7 @@ export default function ReportesPage() {
             <Typography variant="h6" gutterBottom>Reportes disponibles</Typography>
             {reportes.map((r) => (
               <Box key={r.nombre} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, mb: 1, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                <Box sx={{ color: '#0d47a1', display: 'flex' }}>{IconoMap[r.icono]}</Box>
+                <Box sx={{ color: '#7b1f3a', display: 'flex' }}>{IconoMap[r.icono]}</Box>
                 <Box sx={{ flexGrow: 1 }}>
                   <Typography variant="subtitle2" fontWeight="bold">{r.nombre}</Typography>
                   <Typography variant="caption" color="text.secondary">{r.descripcion}</Typography>

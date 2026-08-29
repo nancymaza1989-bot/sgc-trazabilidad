@@ -1,18 +1,27 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box, Paper, Typography, Grid, Chip, Button, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, MenuItem, Alert, CircularProgress, Autocomplete, Tooltip,
+  DialogActions, TextField, MenuItem, Alert, CircularProgress, Autocomplete,
+  Stack, IconButton, Tooltip, InputLabel, List, ListItem, ListItemIcon, ListItemText,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import LockIcon from '@mui/icons-material/Lock';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import ImageIcon from '@mui/icons-material/Image';
+import DescriptionIcon from '@mui/icons-material/Description';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import DeleteIcon from '@mui/icons-material/Delete';
+import GroupsIcon from '@mui/icons-material/Groups';
 
 import apiClient from '@/lib/api/client';
-import { extraerError } from '@/lib/api/archivos';
+import { extraerError, leerArchivoComoBase64 } from '@/lib/api/archivos';
 import PageHeader from '@/components/common/PageHeader';
+import { PJ_COLORS } from '@/lib/theme';
 import {
   TIPOS_ATENCION, PRIORIDADES_TRABAJO, ESTADOS_TRABAJO, ESTADO_COLOR,
   estadoDeTrabajo, type Trabajo, type Evaluacion,
@@ -30,6 +39,14 @@ interface FormTrabajo {
   documentacion: string;
 }
 
+interface AdjuntoUI {
+  file: File;
+  name: string;
+  mime: string;
+  dataUri: string;
+  size: number;
+}
+
 const hoyISO = () => new Date().toISOString().slice(0, 10);
 
 const FORM_VACIO: FormTrabajo = {
@@ -42,6 +59,14 @@ const FORM_VACIO: FormTrabajo = {
   documentacion: '',
 };
 
+const inputRefStyle = { display: 'none' };
+
+function IconoAdjunto(mime: string) {
+  if (/pdf/i.test(mime)) return <PictureAsPdfIcon fontSize="small" />;
+  if (/image\//i.test(mime)) return <ImageIcon fontSize="small" />;
+  return <DescriptionIcon fontSize="small" />;
+}
+
 export default function TrabajosPage() {
   const [trabajos, setTrabajos] = useState<Trabajo[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -51,13 +76,26 @@ export default function TrabajosPage() {
   const [form, setForm] = useState<FormTrabajo>(FORM_VACIO);
   const [guardandoTrabajo, setGuardandoTrabajo] = useState(false);
   const [errorTrabajo, setErrorTrabajo] = useState<string | null>(null);
+  const [adjuntosTemp, setAdjuntosTemp] = useState<AdjuntoUI[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [dialogoAsignacion, setDialogoAsignacion] = useState<Trabajo | null>(null);
+  const [dialogoAsignacionGrupo, setDialogoAsignacionGrupo] = useState(false);
   const [analistaSel, setAnalistaSel] = useState('');
   const [fechaProgramada, setFechaProgramada] = useState('');
   const [guardandoAsignacion, setGuardandoAsignacion] = useState(false);
   const [errorAsignacion, setErrorAsignacion] = useState<string | null>(null);
 
+  // Asignación de pase de versión (grupo)
+  const [encargadoSel, setEncargadoSel] = useState('');
+  const [grupoAnalistas, setGrupoAnalistas] = useState<string[]>([]);
+  const [ticketInput, setTicketInput] = useState('');
+  const [ticketsSeleccionados, setTicketsSeleccionados] = useState<Set<string>>(new Set());
+  const [fechaAsignacionGrupo, setFechaAsignacionGrupo] = useState(hoyISO());
+  const [fechaEntregaGrupo, setFechaEntregaGrupo] = useState('');
+  const [obsGrupo, setObsGrupo] = useState('');
+
+  const [proyectos, setProyectos] = useState<string[]>([]);
   const [accionPorEvaluacion, setAccionPorEvaluacion] = useState<Record<string, string>>({});
 
   const [search, setSearch] = useState('');
@@ -77,9 +115,17 @@ export default function TrabajosPage() {
     }
   }, []);
 
+  const cargarProyectos = useCallback(async () => {
+    try {
+      const { data } = await apiClient.get<{ items: { nombre: string }[] }>('/configuracion/proyectos');
+      setProyectos((data.items || []).filter((p) => p.nombre).map((p) => p.nombre));
+    } catch { /* sin catálogo aún */ }
+  }, []);
+
   useEffect(() => {
     void cargarTrabajos();
-  }, [cargarTrabajos]);
+    void cargarProyectos();
+  }, [cargarTrabajos, cargarProyectos]);
 
   const kpis = useMemo(() => {
     const evaluaciones: Evaluacion[] = trabajos.flatMap((t) => t.evaluaciones);
@@ -91,6 +137,11 @@ export default function TrabajosPage() {
     };
   }, [trabajos]);
 
+  const trabajosSinEvaluacion = useMemo(
+    () => trabajos.filter((t) => t.evaluaciones.length === 0),
+    [trabajos],
+  );
+
   const filtrados = trabajos.filter((t) => {
     const estado = estadoDeTrabajo(t);
     if (search && !`${t.numero_ticket} ${t.proyecto} ${t.instrucciones || ''}`.toLowerCase().includes(search.toLowerCase())) return false;
@@ -98,6 +149,16 @@ export default function TrabajosPage() {
     if (fTipo !== 'todos' && t.tipo_atencion !== fTipo) return false;
     return true;
   });
+
+  const agregarArchivos = async (files: FileList | null) => {
+    if (!files) return;
+    const nuevos: AdjuntoUI[] = [];
+    for (const f of Array.from(files)) {
+      const dataUri = await leerArchivoComoBase64(f);
+      nuevos.push({ file: f, name: f.name, mime: f.type, dataUri, size: f.size });
+    }
+    setAdjuntosTemp((prev) => [...prev, ...nuevos]);
+  };
 
   const registrarTrabajo = async () => {
     setGuardandoTrabajo(true);
@@ -113,10 +174,21 @@ export default function TrabajosPage() {
       };
       if (form.documentacion.trim()) params.documentacion = form.documentacion.trim();
 
-      await apiClient.post('/trabajos/', null, { params });
+      const { data } = await apiClient.post<{ id: string }>('/trabajos/', null, { params });
+      const trabajoId = data.id;
+
+      // Subir adjuntos después de crear el trabajo
+      for (const adj of adjuntosTemp) {
+        const base = adj.dataUri.substring(adj.dataUri.indexOf(',') + 1);
+        await apiClient.post(`/trabajos/${trabajoId}/adjuntos`, null, {
+          params: { nombre: adj.name, archivo: adj.dataUri, tipo_mime: adj.mime },
+        });
+      }
+
       await cargarTrabajos();
       setDialogoRegistro(false);
       setForm(FORM_VACIO);
+      setAdjuntosTemp([]);
     } catch (err) {
       setErrorTrabajo(extraerError(err));
     } finally {
@@ -149,6 +221,41 @@ export default function TrabajosPage() {
     } finally {
       setGuardandoAsignacion(false);
     }
+  };
+
+  const crearAsignacionGrupo = async () => {
+    if (!encargadoSel.trim() || ticketsSeleccionados.size === 0) return;
+    setGuardandoAsignacion(true);
+    setErrorAsignacion(null);
+    try {
+      const ids = Array.from(ticketsSeleccionados).join(',');
+      await apiClient.post('/trabajos/asignaciones', null, {
+        params: {
+          analista_encargado: encargadoSel.trim(),
+          fecha_asignacion: fechaAsignacionGrupo,
+          fecha_programada_entrega: fechaEntregaGrupo || undefined,
+          trabajos_ids: ids,
+          analistas_grupo: grupoAnalistas.join(','),
+          observaciones: obsGrupo || undefined,
+        },
+      });
+      await cargarTrabajos();
+      setDialogoAsignacionGrupo(false);
+      setEncargadoSel(''); setGrupoAnalistas([]); setTicketsSeleccionados(new Set());
+      setTicketInput(''); setFechaAsignacionGrupo(hoyISO()); setFechaEntregaGrupo(''); setObsGrupo('');
+    } catch (err) {
+      setErrorAsignacion(extraerError(err));
+    } finally {
+      setGuardandoAsignacion(false);
+    }
+  };
+
+  const toggleTicket = (id: string) => {
+    setTicketsSeleccionados((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
   };
 
   const entregarEvaluacion = async (t: Trabajo, ev: Evaluacion) => {
@@ -208,7 +315,13 @@ export default function TrabajosPage() {
         descripcion="Registro de pases, requerimientos y tickets · Coordinador de Calidad"
         breadcrumb={[{ label: 'Principal' }, { label: 'Trabajos' }]}
         actions={[
-          <Button key="nuevo" variant="contained" startIcon={<AddIcon />} onClick={() => { setForm(FORM_VACIO); setErrorTrabajo(null); setDialogoRegistro(true); }}>
+          <Button key="grupo" variant="outlined" color="secondary" startIcon={<GroupsIcon />} onClick={() => {
+            setDialogoAsignacionGrupo(true); setEncargadoSel(''); setGrupoAnalistas([]);
+            setTicketsSeleccionados(new Set()); setTicketInput(''); setErrorAsignacion(null);
+          }}>
+            Asignación de Pase de Versión
+          </Button>,
+          <Button key="nuevo" variant="contained" startIcon={<AddIcon />} onClick={() => { setForm(FORM_VACIO); setErrorTrabajo(null); setAdjuntosTemp([]); setDialogoRegistro(true); }}>
             Registrar Trabajo
           </Button>,
         ]}
@@ -222,9 +335,9 @@ export default function TrabajosPage() {
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={6} md={3}>
-          <Paper sx={{ p: 2, borderRadius: 2, borderLeft: '4px solid #0d47a1' }}>
+          <Paper sx={{ p: 2, borderRadius: 2, borderLeft: `4px solid ${PJ_COLORS.primary}` }}>
             <Typography variant="subtitle2" color="text.secondary">Total trabajos</Typography>
-            <Typography variant="h4" fontWeight="bold">{kpis.total}</Typography>
+            <Typography variant="h4" fontWeight="bold" sx={{ color: PJ_COLORS.primaryDark }}>{kpis.total}</Typography>
           </Paper>
         </Grid>
         <Grid item xs={6} md={3}>
@@ -287,6 +400,27 @@ export default function TrabajosPage() {
                     <Chip size="small" label={`Recibido: ${t.fecha_recepcion || '—'}`} variant="outlined" />
                     <Chip size="small" label={`${t.evaluaciones.length} evaluación(es)`} variant="outlined" />
                   </Box>
+
+                  {/* Adjuntos de documentación */}
+                  {(t.adjuntos && t.adjuntos.length > 0) && (
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Documentación adjunta</Typography>
+                      {t.adjuntos.map((a) => (
+                        <Stack key={a.id} direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                          {IconoAdjunto(a.tipo_mime || '')}
+                          <Tooltip title={a.nombre}>
+                            <Typography variant="caption" noWrap sx={{ flex: 1 }}>{a.nombre}</Typography>
+                          </Tooltip>
+                          {a.archivo && (
+                            <IconButton size="small" component="a" href={a.archivo} target="_blank" rel="noopener noreferrer">
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Stack>
+                      ))}
+                    </Box>
+                  )}
+
                   {ev && (
                     <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
                       <Chip size="small" icon={<AssignmentIndIcon />} label={ev.analista || 'Sin analista'} color={ev.analista ? 'default' : 'error'} variant={ev.analista ? 'outlined' : 'filled'} />
@@ -336,6 +470,7 @@ export default function TrabajosPage() {
         </Grid>
       </Paper>
 
+      {/* Diálogo: Registrar Trabajo (Coordinador) */}
       <Dialog open={dialogoRegistro} onClose={() => setDialogoRegistro(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Registrar Trabajo (Coordinador)</DialogTitle>
         <DialogContent>
@@ -343,7 +478,15 @@ export default function TrabajosPage() {
           <Box sx={{ mt: 1 }}>
             <Grid container spacing={2}>
               <Grid item xs={6}><TextField fullWidth label="Ticket / GLPI / ID *" value={form.numero_ticket} onChange={(e) => setForm({ ...form, numero_ticket: e.target.value })} /></Grid>
-              <Grid item xs={6}><TextField fullWidth label="Proyecto *" value={form.proyecto} onChange={(e) => setForm({ ...form, proyecto: e.target.value })} /></Grid>
+              <Grid item xs={6}>
+                <Autocomplete
+                  freeSolo
+                  options={proyectos}
+                  inputValue={form.proyecto}
+                  onInputChange={(_, valor) => setForm({ ...form, proyecto: valor })}
+                  renderInput={(params) => <TextField {...params} fullWidth label="Proyecto * (editable / desplegable)" />}
+                />
+              </Grid>
               <Grid item xs={6}>
                 <TextField select fullWidth label="Tipo de atención *" value={form.tipo_atencion} onChange={(e) => setForm({ ...form, tipo_atencion: e.target.value })}>
                   {TIPOS_ATENCION.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
@@ -356,8 +499,45 @@ export default function TrabajosPage() {
               </Grid>
               <Grid item xs={12}><TextField fullWidth label="Fecha recepción" type="date" value={form.fecha_recepcion} onChange={(e) => setForm({ ...form, fecha_recepcion: e.target.value })} /></Grid>
               <Grid item xs={12}><TextField fullWidth label="Instrucciones / descripción *" multiline rows={3} value={form.instrucciones} onChange={(e) => setForm({ ...form, instrucciones: e.target.value })} /></Grid>
-              <Grid item xs={12}><TextField fullWidth label="Documentación (links o referencias)" multiline rows={2} value={form.documentacion} onChange={(e) => setForm({ ...form, documentacion: e.target.value })} /></Grid>
             </Grid>
+
+            {/* Documentación adjunta */}
+            <Box sx={{ mt: 2 }}>
+              <InputLabel>Documentación (adjuntar archivos de su PC)</InputLabel>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                style={inputRefStyle}
+                onChange={(e) => { void agregarArchivos(e.target.files); e.target.value = ''; }}
+              />
+              <Button size="small" variant="outlined" startIcon={<AttachFileIcon />}
+                onClick={() => fileInputRef.current?.click()}>
+                Adjuntar documentos
+              </Button>
+              {adjuntosTemp.length > 0 && (
+                <List dense sx={{ mt: 1 }}>
+                  {adjuntosTemp.map((adj, idx) => (
+                    <ListItem key={idx} dense disableGutters secondaryAction={
+                      <IconButton size="small" onClick={() => setAdjuntosTemp((prev) => prev.filter((_, i) => i !== idx))}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    }>
+                      <ListItemIcon>{IconoAdjunto(adj.mime)}</ListItemIcon>
+                      <Stack sx={{ flex: 1, minWidth: 0 }}>
+                        <ListItemText primary={adj.name} sx={{ m: 0 }} />
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="caption" color="text.secondary">{(adj.size / 1024).toFixed(0)} KB</Typography>
+                          <IconButton size="small" component="a" href={adj.dataUri} target="_blank" rel="noopener noreferrer">
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
+                      </Stack>
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>
@@ -373,6 +553,7 @@ export default function TrabajosPage() {
         </DialogActions>
       </Dialog>
 
+      {/* Diálogo: asignar analista (un solo ticket) */}
       <Dialog open={Boolean(dialogoAsignacion)} onClose={() => setDialogoAsignacion(null)} maxWidth="xs" fullWidth>
         <DialogTitle>Asignar Analista de Calidad</DialogTitle>
         <DialogContent>
@@ -398,6 +579,93 @@ export default function TrabajosPage() {
             onClick={() => void asignarAnalista()}
           >
             Asignar y crear evaluación
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Diálogo: Asignación de Pase de Versión (multi-ticket + grupo) */}
+      <Dialog open={dialogoAsignacionGrupo} onClose={() => setDialogoAsignacionGrupo(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Asignación de Pase de Versión</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Designe al analista encargado, seleccione uno o varios tickets y el grupo de analistas que los atenderá.
+          </Typography>
+          {errorAsignacion && <Alert severity="error" sx={{ mt: 1, mb: 1 }}>{errorAsignacion}</Alert>}
+
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <Autocomplete
+                freeSolo
+                options={ANALISTAS_SUGERIDOS}
+                inputValue={encargadoSel}
+                onInputChange={(_, valor) => setEncargadoSel(valor)}
+                renderInput={(params) => <TextField {...params} fullWidth label="Analista encargado *" />}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField fullWidth label="Fecha de asignación" type="date" value={fechaAsignacionGrupo}
+                onChange={(e) => setFechaAsignacionGrupo(e.target.value)} />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField fullWidth label="Fecha programada de entrega" type="date" value={fechaEntregaGrupo}
+                onChange={(e) => setFechaEntregaGrupo(e.target.value)} />
+            </Grid>
+            <Grid item xs={12}>
+              <Autocomplete
+                multiple
+                freeSolo
+                options={ANALISTAS_SUGERIDOS}
+                value={grupoAnalistas}
+                onChange={(_, valor) => setGrupoAnalistas(valor)}
+                renderInput={(params) => <TextField {...params} fullWidth label="Grupo de analistas (los que atenderán los tickets)" />}
+              />
+            </Grid>
+          </Grid>
+
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              Tickets/trabajos a asignar ({ticketsSeleccionados.size} seleccionado(s))
+            </Typography>
+            <Autocomplete
+              freeSolo
+              options={trabajosSinEvaluacion.map((t) => `${t.numero_ticket} · ${t.proyecto}`)}
+              inputValue={ticketInput}
+              onInputChange={(_, valor) => setTicketInput(valor)}
+              onChange={(_, valor) => {
+                const t = trabajosSinEvaluacion.find((x) => `${x.numero_ticket} · ${x.proyecto}` === valor);
+                if (t) toggleTicket(t.id);
+                setTicketInput('');
+              }}
+              renderInput={(params) => <TextField {...params} size="small" fullWidth label="Buscar y seleccionar ticket..." />}
+            />
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+              {trabajosSinEvaluacion
+                .filter((t) => ticketsSeleccionados.has(t.id))
+                .map((t) => (
+                  <Chip key={t.id} label={`${t.numero_ticket} · ${t.proyecto}`} color="secondary" onDelete={() => toggleTicket(t.id)} />
+                ))}
+            </Stack>
+            {ticketsSeleccionados.size === 0 && (
+              <Button size="small" sx={{ mt: 1 }}
+                onClick={() => setTicketsSeleccionados(new Set(trabajosSinEvaluacion.map((t) => t.id)))}>
+                Seleccionar todos los pendientes
+              </Button>
+            )}
+          </Box>
+
+          <TextField fullWidth label="Observaciones" multiline rows={2} value={obsGrupo}
+            onChange={(e) => setObsGrupo(e.target.value)} sx={{ mt: 2 }} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogoAsignacionGrupo(false)}>Cancelar</Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            disabled={!encargadoSel.trim() || ticketsSeleccionados.size === 0 || guardandoAsignacion}
+            startIcon={guardandoAsignacion ? <CircularProgress size={18} color="inherit" /> : undefined}
+            onClick={() => void crearAsignacionGrupo()}
+          >
+            Asignar pase de versión
           </Button>
         </DialogActions>
       </Dialog>

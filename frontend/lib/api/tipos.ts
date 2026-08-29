@@ -32,6 +32,16 @@ export interface Evaluacion {
   historial: HistorialItem[];
 }
 
+export interface AdjuntoTrabajo {
+  id: string;
+  nombre: string;
+  tipo_mime: string | null;
+  tamano: number | null;
+  archivo: string | null;
+  descripcion: string | null;
+  created_at: string | null;
+}
+
 export interface Trabajo {
   id: string;
   numero_ticket: string;
@@ -42,7 +52,9 @@ export interface Trabajo {
   documentacion: string | null;
   fecha_recepcion: string | null;
   coordinador: string | null;
+  asignacion_id: string | null;
   pendiente_asignacion: boolean;
+  adjuntos: AdjuntoTrabajo[];
   evaluaciones: Evaluacion[];
 }
 

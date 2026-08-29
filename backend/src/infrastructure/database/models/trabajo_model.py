@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, DateTime, Boolean, Date, ForeignKey
+from sqlalchemy import Column, String, Text, DateTime, Boolean, Date, ForeignKey, Integer
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
@@ -23,12 +23,16 @@ class TrabajoModel(Base):
     documentacion = Column(Text, nullable=True)
     fecha_recepcion = Column(Date, nullable=True)
     coordinador = Column(String(255), nullable=True, default="Coordinador de Calidad")
+    asignacion_id = Column(String(36), ForeignKey("asignaciones.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     evaluaciones = relationship("EvaluacionModel", back_populates="trabajo",
                                 cascade="all, delete-orphan", lazy="selectin")
+    adjuntos = relationship("AdjuntoTrabajoModel", back_populates="trabajo",
+                            cascade="all, delete-orphan", lazy="selectin")
+    asignacion = relationship("AsignacionModel", back_populates="trabajos", lazy="selectin")
 
 
 class EvaluacionModel(Base):
@@ -128,6 +132,67 @@ class EvidenciaCasoItemModel(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     caso_item = relationship("CasoPruebaItemModel", back_populates="evidencias", lazy="selectin")
+
+
+class ProyectoModel(Base):
+    """Catálogo de proyectos configurable desde el módulo Configuración."""
+
+    __tablename__ = "proyectos"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    nombre = Column(String(255), nullable=False, unique=True)
+    activo = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AdjuntoTrabajoModel(Base):
+    """Documentación adjunta a un trabajo (reg. del Coordinador) con vista previa."""
+
+    __tablename__ = "adjuntos_trabajo"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    trabajo_id = Column(String(36), ForeignKey("trabajos.id", ondelete="CASCADE"), nullable=False)
+    nombre = Column(String(500), nullable=False)
+    tipo_mime = Column(String(120), nullable=True)
+    tamano = Column(Integer, nullable=True)
+    archivo = Column(Text, nullable=True)  # data URI (base64) para vista previa/descarga
+    descripcion = Column(Text, nullable=True)
+    creado_por = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    trabajo = relationship("TrabajoModel", back_populates="adjuntos", lazy="selectin")
+
+
+class AsignacionModel(Base):
+    """Asignación de pase de versión: analista encargado + grupo de analistas + varios tickets."""
+
+    __tablename__ = "asignaciones"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    nombre = Column(String(255), nullable=True)
+    analista_encargado = Column(String(255), nullable=False)
+    fecha_asignacion = Column(Date, nullable=False)
+    fecha_programada_entrega = Column(Date, nullable=True)
+    estado = Column(String(100), nullable=False, default="Asignado")
+    observaciones = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    trabajos = relationship("TrabajoModel", back_populates="asignacion", lazy="selectin")
+    analistas = relationship("AsignacionAnalistaModel", back_populates="asignacion",
+                             cascade="all, delete-orphan", lazy="selectin")
+
+
+class AsignacionAnalistaModel(Base):
+    """Miembro del grupo de analistas de una asignación de pase de versión."""
+
+    __tablename__ = "asignacion_analistas"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    asignacion_id = Column(String(36), ForeignKey("asignaciones.id", ondelete="CASCADE"), nullable=False)
+    analista = Column(String(255), nullable=False)
+
+    asignacion = relationship("AsignacionModel", back_populates="analistas", lazy="selectin")
 
 
 class IncidenciaModel(Base):

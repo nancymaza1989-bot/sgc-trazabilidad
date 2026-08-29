@@ -19,6 +19,9 @@ from src.infrastructure.database.models.trabajo_model import (
     EvidenciaCasoItemModel,
     IncidenciaModel,
     EvidenciaModel,
+    AdjuntoTrabajoModel,
+    AsignacionModel,
+    AsignacionAnalistaModel,
 )
 from src.interfaces.api.v1.endpoints.serializers import (
     trabajo_to_dict,
@@ -27,6 +30,7 @@ from src.interfaces.api.v1.endpoints.serializers import (
     caso_prueba_to_dict,
     caso_item_to_dict,
     evidencia_to_dict,
+    asignacion_to_dict,
 )
 
 router = APIRouter()
@@ -267,6 +271,129 @@ async def entregar_evaluacion(
     await db.commit()
     creado = (await db.execute(select(EvaluacionModel).where(EvaluacionModel.id == e.id))).scalar_one()
     return evaluacion_to_dict(creado)
+
+
+# ------------------------------------------------------------------
+# 2.1 ADJUNTOS DE DOCUMENTACIÓN (Registro del Coordinador)
+# ------------------------------------------------------------------
+
+@router.post("/{trabajo_id}/adjuntos", status_code=status.HTTP_201_CREATED)
+async def agregar_adjunto(
+    trabajo_id: UUID,
+    nombre: str,
+    archivo: str,
+    tipo_mime: Optional[str] = None,
+    descripcion: str = "",
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    t = await _buscar_trabajo(db, trabajo_id)
+    adj = AdjuntoTrabajoModel(
+        trabajo_id=t.id,
+        nombre=(nombre or "").strip() or "documento",
+        archivo=archivo,
+        tipo_mime=tipo_mime,
+        descripcion=descripcion or None,
+        creado_por=current_user.get("id"),
+    )
+    db.add(adj)
+    await db.commit()
+    creado = (await db.execute(select(AdjuntoTrabajoModel).where(AdjuntoTrabajoModel.id == adj.id))).scalar_one()
+    t2 = await _buscar_trabajo(db, trabajo_id)
+    return trabajo_to_dict(t2)
+
+
+@router.delete("/{trabajo_id}/adjuntos/{adjunto_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def eliminar_adjunto(
+    trabajo_id: UUID,
+    adjunto_id: UUID,
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    t = await _buscar_trabajo(db, trabajo_id)
+    adj = next((a for a in t.adjuntos if a.id == str(adjunto_id)), None)
+    if not adj:
+        raise HTTPException(status_code=404, detail="Adjunto no encontrado")
+    await db.delete(adj)
+    await db.commit()
+
+
+# ------------------------------------------------------------------
+# 2.2 ASIGNACIÓN DE PASE DE VERSIÓN (analista encargado + grupo + multi-ticket)
+# ------------------------------------------------------------------
+
+@router.post("/asignaciones", status_code=status.HTTP_201_CREATED)
+async def crear_asignacion(
+    analista_encargado: str,
+    fecha_asignacion: str,
+    fecha_programada_entrega: Optional[str] = None,
+    nombre: Optional[str] = None,
+    observaciones: Optional[str] = None,
+    trabajos_ids: str = "",       # lista separada por comas de ids de trabajos
+    analistas_grupo: str = "",    # lista separada por comas de analistas del grupo
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from src.infrastructure.database.models.trabajo_model import TrabajoModel
+    encargado = (analista_encargado or "").strip()
+    if not encargado:
+        raise HTTPException(status_code=400, detail="Debe indicar el analista encargado")
+
+    try:
+        fecha_asig = date.fromisoformat(fecha_asignacion)
+        fecha_prog = date.fromisoformat(fecha_programada_entrega) if fecha_programada_entrega else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Fecha de asignación inválida")
+
+    ids = [x.strip() for x in (trabajos_ids or "").split(",") if x.strip()]
+    if not ids:
+        raise HTTPException(status_code=400, detail="Debe seleccionar al menos un ticket/trabajo")
+
+    trabajos = []
+    for i in ids:
+        t = (await db.execute(select(TrabajoModel).where(TrabajoModel.id == i))).scalar_one_or_none()
+        if not t:
+            raise HTTPException(status_code=404, detail=f"Trabajo {i} no encontrado")
+        trabajos.append(t)
+
+    asignacion = AsignacionModel(
+        nombre=(nombre or "").strip() or None,
+        analista_encargado=encargado,
+        fecha_asignacion=fecha_asig,
+        fecha_programada_entrega=fecha_prog,
+        estado="Asignado",
+        observaciones=observaciones or None,
+    )
+    db.add(asignacion)
+    await db.flush()
+
+    # Grupo de analistas
+    grupo = [x.strip() for x in (analistas_grupo or "").split(",") if x.strip()]
+    for miembro in grupo:
+        db.add(AsignacionAnalistaModel(asignacion_id=asignacion.id, analista=miembro))
+
+    # Vincular los tickets a la asignación
+    for t in trabajos:
+        t.asignacion_id = asignacion.id
+
+    await db.commit()
+    creado = (await db.execute(select(AsignacionModel).where(AsignacionModel.id == asignacion.id))).scalar_one()
+    return asignacion_to_dict(creado)
+
+
+@router.get("/asignaciones")
+async def listar_asignaciones(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    stmt = select(AsignacionModel).order_by(AsignacionModel.created_at.desc())
+    items = list((await db.execute(stmt)).scalars().all())
+    return {"items": [asignacion_to_dict(a) for a in items], "total": len(items)}
+
+
+@router.get("/asignaciones/{asignacion_id}")
+async def obtener_asignacion(asignacion_id: UUID, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    a = (await db.execute(select(AsignacionModel).where(AsignacionModel.id == str(asignacion_id)))).scalar_one_or_none()
+    if not a:
+        raise HTTPException(status_code=404, detail="Asignación no encontrada")
+    return asignacion_to_dict(a)
 
 
 # ------------------------------------------------------------------

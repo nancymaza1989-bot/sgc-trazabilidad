@@ -83,7 +83,7 @@ export default function LoginPage() {
           inset: 0,
           bgcolor: PJ_COLORS.background,
           background:
-            'linear-gradient(160deg, #0d47a1 0%, #0a3577 30%, #ecf3fc 30%, #f4f6fa 60%)',
+            'linear-gradient(160deg, #7b1f3a 0%, #5c1629 28%, #e4f3fb 28%, #f2f4f7 60%)',
           opacity: 0.14,
         }}
       />

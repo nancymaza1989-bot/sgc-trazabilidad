@@ -26,7 +26,7 @@ export function TrendChart({ data }: TrendChartProps) {
     return point;
   });
 
-  const colors = ['#1976d2', '#22c55e', '#eab308', '#ef4444', '#8b5cf6'];
+  const colors = ['#2c8cc4', '#22c55e', '#eab308', '#7b1f3a', '#8b5cf6'];
 
   return (
     <ResponsiveContainer width="100%" height={300}>

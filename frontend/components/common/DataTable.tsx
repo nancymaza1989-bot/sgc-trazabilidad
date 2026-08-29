@@ -7,6 +7,7 @@ import {
   Pagination, Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import { PJ_COLORS } from '@/lib/theme';
 
 export interface ColumnDef<T> {
   key: string;
@@ -103,11 +104,11 @@ export default function DataTable<T extends Record<string, any>>({
       <TableContainer>
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ bgcolor: '#0d47a1' }}>
+            <TableRow sx={{ bgcolor: PJ_COLORS.primary }}>
               {columns.map((c) => (
                 <TableCell
                   key={c.key}
-                  sx={{ fontWeight: 'bold', color: '#ffffff', borderBottom: '2px solid #0a3577', whiteSpace: 'nowrap' }}
+                  sx={{ fontWeight: 'bold', color: '#ffffff', borderBottom: `2px solid ${PJ_COLORS.primaryDark}`, whiteSpace: 'nowrap' }}
                 >
                   {c.label}
                 </TableCell>
@@ -116,7 +117,7 @@ export default function DataTable<T extends Record<string, any>>({
           </TableHead>
           <TableBody>
             {paged.map((row, i) => (
-              <TableRow key={i} hover sx={{ '&:nth-of-type(even)': { bgcolor: '#f4f6fa' } }}>
+              <TableRow key={i} hover sx={{ '&:nth-of-type(even)': { bgcolor: PJ_COLORS.secondaryLight } }}>
                 {columns.map((c) => {
                   const value = row[c.key];
                   let node: React.ReactNode = value;

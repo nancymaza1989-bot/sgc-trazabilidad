@@ -41,7 +41,7 @@ export default function CalidadIsoPage() {
               <RadarChart data={data} outerRadius={110}>
                 <PolarGrid />
                 <PolarAngleAxis dataKey="caracteristica" tick={{ fontSize: 11 }} />
-                <Radar dataKey="valor" stroke="#0d47a1" fill="#0d47a1" fillOpacity={0.3} />
+                <Radar dataKey="valor" stroke="#7b1f3a" fill="#7b1f3a" fillOpacity={0.3} />
               </RadarChart>
             </ResponsiveContainer>
             <Box sx={{ textAlign: 'center', mt: 1 }}>
