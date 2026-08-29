@@ -103,21 +103,26 @@ export default function DataTable<T extends Record<string, any>>({
       <TableContainer>
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ bgcolor: '#f0f4fa' }}>
+            <TableRow sx={{ bgcolor: '#0d47a1' }}>
               {columns.map((c) => (
-                <TableCell key={c.key} sx={{ fontWeight: 'bold' }}>{c.label}</TableCell>
+                <TableCell
+                  key={c.key}
+                  sx={{ fontWeight: 'bold', color: '#ffffff', borderBottom: '2px solid #0a3577', whiteSpace: 'nowrap' }}
+                >
+                  {c.label}
+                </TableCell>
               ))}
             </TableRow>
           </TableHead>
           <TableBody>
             {paged.map((row, i) => (
-              <TableRow key={i} hover>
+              <TableRow key={i} hover sx={{ '&:nth-of-type(even)': { bgcolor: '#f4f6fa' } }}>
                 {columns.map((c) => {
                   const value = row[c.key];
                   let node: React.ReactNode = value;
                   if (c.render) node = c.render(row);
                   else if (c.badge) node = <Chip size="small" label={value} color={c.badge(value) as any} />;
-                  return <TableCell key={c.key}>{node}</TableCell>;
+                  return <TableCell key={c.key} sx={{ borderBottom: '1px solid #e2e8f0' }}>{node}</TableCell>;
                 })}
               </TableRow>
             ))}

@@ -19,6 +19,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import apiClient from '@/lib/api/client';
 import { descargarPDF } from '@/lib/api/pdf';
 import { leerArchivoComoBase64, extraerError } from '@/lib/api/archivos';
+import PageHeader from '@/components/common/PageHeader';
 import {
   TIPOS_ERROR, PRIORIDADES_INCIDENCIA, MOTORES_BD, ESTADO_COLOR,
   type Trabajo, type Evaluacion, type EvaluacionDetalle, type Incidencia,
@@ -218,29 +219,28 @@ export default function IncidenciasPage() {
 
   return (
     <Box>
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="h4" fontWeight="bold">Incidencias y Evaluaciones</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Evaluaciones asignadas al Analista de Calidad. Abra una evaluación para registrar
-          incidencias/hallazgos, evidencias y descargar el Formato de Incidencia (PDF).
-        </Typography>
-      </Box>
+      <PageHeader
+        titulo="Incidencias y Evaluaciones"
+        descripcion="Evaluaciones asignadas al Analista de Calidad. Abra una evaluación para registrar incidencias/hallazgos, evidencias y descargar el Formato de Incidencia (PDF)."
+        breadcrumb={[{ label: 'Calidad' }, { label: 'Incidencias' }]}
+        actions={[
+          <Chip
+            key="rol-chip"
+            size="small"
+            label={esAnalista
+              ? `Vista de Analista · ${evaluacionesVisibles.length} evaluación(es) asignada(s)`
+              : 'Mostrando todas las evaluaciones'}
+            variant="outlined"
+            color="primary"
+          />,
+        ]}
+      />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={() => void cargarTrabajos()}>Reintentar</Button>}>
           {error}
         </Alert>
       )}
-
-      <Box sx={{ mb: 2 }}>
-        <Chip
-          size="small"
-          label={esAnalista
-            ? `Vista de Analista · ${evaluacionesVisibles.length} evaluación(es) asignada(s)`
-            : 'Mostrando todas las evaluaciones'}
-          variant="outlined"
-        />
-      </Box>
 
       <Grid container spacing={2}>
         {evaluacionesVisibles.length === 0 && !error && (

@@ -16,6 +16,7 @@ import ScienceIcon from '@mui/icons-material/Science';
 import apiClient from '@/lib/api/client';
 import { descargarPDF } from '@/lib/api/pdf';
 import { leerArchivoComoBase64, extraerError } from '@/lib/api/archivos';
+import PageHeader from '@/components/common/PageHeader';
 import {
   TIPOS_PASE, RESULTADOS_PRUEBA, type Trabajo, type Evaluacion,
   type EvaluacionDetalle, type CasoPrueba, type CasoPruebaItem,
@@ -266,13 +267,11 @@ function CasosPruebaContent() {
 
   return (
     <Box>
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="h4" fontWeight="bold">Casos de Prueba (RA-105)</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Formato de Caso de Prueba del Poder Judicial. Seleccione una evaluación asignada y registre el encabezado,
-          los casos, la conclusión y las firmas.
-        </Typography>
-      </Box>
+      <PageHeader
+        titulo="Casos de Prueba (RA-105)"
+        descripcion="Formato de Caso de Prueba del Poder Judicial. Seleccione una evaluación asignada y registre el encabezado, los casos, la conclusión y las firmas."
+        breadcrumb={[{ label: 'Calidad' }, { label: 'Casos de Prueba (RA-105)' }]}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 

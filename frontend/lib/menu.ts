@@ -5,7 +5,12 @@ export interface MenuItem {
   descripcion: string;
 }
 
-export const MENU_MODULOS: MenuItem[] = [
+export interface MenuSeccion {
+  titulo: string;
+  items: MenuItem[];
+}
+
+const MODULOS: MenuItem[] = [
   { titulo: 'Dashboard', ruta: '/dashboard', icono: '📊', descripcion: 'Panel de control de la calidad (Coordinador)' },
   { titulo: 'Trabajos', ruta: '/trabajos', icono: '🎫', descripcion: 'Gestión de tickets, pases y requerimientos (Coordinador)' },
   { titulo: 'Incidencias', ruta: '/incidencias', icono: '📋', descripcion: 'Evaluaciones asignadas al Analista: registrar casos de prueba, incidencias/hallazgos y evidencias' },
@@ -19,3 +24,32 @@ export const MENU_MODULOS: MenuItem[] = [
   { titulo: 'Usuarios', ruta: '/usuarios', icono: '👥', descripcion: 'Gestión de usuarios, roles y permisos' },
   { titulo: 'Configuración', ruta: '/configuracion', icono: '⚙️', descripcion: 'Mantenedores y parámetros del sistema' },
 ];
+
+export const MENU_SECCIONES: MenuSeccion[] = [
+  {
+    titulo: 'Principal',
+    items: MODULOS.filter((m) =>
+      ['dashboard', 'trabajos'].includes(m.ruta.replace('/', '')),
+    ),
+  },
+  {
+    titulo: 'Calidad',
+    items: MODULOS.filter((m) =>
+      ['incidencias', 'casos-prueba', 'requerimientos', 'versiones', 'calidad-iso'].includes(m.ruta.replace('/', '')),
+    ),
+  },
+  {
+    titulo: 'Gestión',
+    items: MODULOS.filter((m) =>
+      ['monitoreo', 'reportes', 'auditoria'].includes(m.ruta.replace('/', '')),
+    ),
+  },
+  {
+    titulo: 'Administración',
+    items: MODULOS.filter((m) =>
+      ['usuarios', 'configuracion'].includes(m.ruta.replace('/', '')),
+    ),
+  },
+];
+
+export const MENU_MODULOS: MenuItem[] = MODULOS;

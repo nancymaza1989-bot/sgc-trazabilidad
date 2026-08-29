@@ -12,6 +12,7 @@ import LockIcon from '@mui/icons-material/Lock';
 
 import apiClient from '@/lib/api/client';
 import { extraerError } from '@/lib/api/archivos';
+import PageHeader from '@/components/common/PageHeader';
 import {
   TIPOS_ATENCION, PRIORIDADES_TRABAJO, ESTADOS_TRABAJO, ESTADO_COLOR,
   estadoDeTrabajo, type Trabajo, type Evaluacion,
@@ -202,17 +203,16 @@ export default function TrabajosPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-        <Box>
-          <Typography variant="h4" fontWeight="bold">Gestión de Trabajos</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Registro de pases, requerimientos y tickets · Coordinador de Calidad
-          </Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setForm(FORM_VACIO); setErrorTrabajo(null); setDialogoRegistro(true); }}>
-          Registrar Trabajo
-        </Button>
-      </Box>
+      <PageHeader
+        titulo="Gestión de Trabajos"
+        descripcion="Registro de pases, requerimientos y tickets · Coordinador de Calidad"
+        breadcrumb={[{ label: 'Principal' }, { label: 'Trabajos' }]}
+        actions={[
+          <Button key="nuevo" variant="contained" startIcon={<AddIcon />} onClick={() => { setForm(FORM_VACIO); setErrorTrabajo(null); setDialogoRegistro(true); }}>
+            Registrar Trabajo
+          </Button>,
+        ]}
+      />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={() => void cargarTrabajos()}>Reintentar</Button>}>

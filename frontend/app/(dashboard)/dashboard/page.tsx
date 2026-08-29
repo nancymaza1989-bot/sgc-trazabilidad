@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Box, Typography, Grid, Paper, CircularProgress, Chip, LinearProgress } from '@mui/material';
 import { KPICards } from '@/components/dashboard/KPICards';
 import { TrendChart } from '@/components/dashboard/TrendChart';
+import PageHeader from '@/components/common/PageHeader';
 
 const kpisCoordinador = [
   { nombre: 'Trabajos Recibidos', valor: 18, unidad: 'total', objetivo: 25, estado: 'regular' },
@@ -67,12 +68,11 @@ export default function DashboardPage() {
 
   return (
     <Box>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">Dashboard del Coordinador</Typography>
-        <Typography variant="subtitle1" color="text.secondary">
-          Bienvenido, {session?.user?.name || 'Coordinador'} · Monitoreo del ciclo de vida de los trabajos de calidad
-        </Typography>
-      </Box>
+      <PageHeader
+        titulo="Dashboard del Coordinador"
+        descripcion={`Bienvenido, ${session?.user?.name || 'Coordinador'} · Monitoreo del ciclo de vida de los trabajos de calidad`}
+        breadcrumb={[{ label: 'Principal' }, { label: 'Dashboard' }]}
+      />
 
       <KPICards kpis={kpisCoordinador} />
 
