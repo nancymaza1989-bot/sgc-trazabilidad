@@ -43,10 +43,16 @@ class Settings(BaseSettings):
 settings = Settings()
 
 def get_database_url() -> str:
-    """Retorna SQLite por defecto para despliegues sin PostgreSQL (Render free)."""
-    env_url = os.getenv("DATABASE_URL")
-    if env_url and not env_url.startswith("postgresql://sgc_user:Sgc2024Secure@localhost"):
-        return env_url
+    """Retorna SQLite por defecto para despliegues gratuitos (herramienta autonoma).
+
+    La app funciona 100% con SQLite local (archivo backend/data/sgc.db), sin depender
+    de una BD externa. Si el administrador define explícitamente USE_POSTGRES=1 y
+    DATABASE_URL, se respeta esa URL de PostgreSQL para entornos con BD dedicada.
+    """
+    if os.getenv("USE_POSTGRES") == "1":
+        env_url = os.getenv("DATABASE_URL")
+        if env_url:
+            return env_url
     sqlite_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "sgc.db")
     os.makedirs(os.path.dirname(sqlite_path), exist_ok=True)
     return f"sqlite:///{sqlite_path}"
