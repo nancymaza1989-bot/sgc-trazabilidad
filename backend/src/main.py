@@ -39,7 +39,9 @@ app.include_router(api_v1_router, prefix="/api/v1")
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "version": settings.APP_VERSION}
+    from src.core.config import DATABASE_URL
+    dialecto = "sqlite" if DATABASE_URL.startswith("sqlite") else ("postgres" if DATABASE_URL.startswith("postgres") else DATABASE_URL.split("/")[0])
+    return {"status": "healthy", "version": settings.APP_VERSION, "db": dialecto}
 
 if __name__ == "__main__":
     import uvicorn
