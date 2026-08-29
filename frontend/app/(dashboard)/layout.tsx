@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
+import { CircularProgress, Stack } from '@mui/material';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   Box, Drawer, AppBar, Toolbar, Typography, List, ListItem, ListItemButton,
@@ -29,9 +30,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [open, setOpen] = useState(!isMobile);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
+
+  // Mientras la sesión se está estableciendo (refrescando el JWT) mostramos un indicador
+  // para evitar parpadeos o estados ambiguos en las sub-páginas.
+  const cargandoSesion = status === 'loading';
 
   useEffect(() => {
     const token = (session as any)?.user?.access_token;
@@ -51,6 +56,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     localStorage.removeItem('access_token');
     await signOut({ callbackUrl: '/login' });
   };
+
+  if (cargandoSesion) {
+    return (
+      <Box sx={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', bgcolor: '#f5f7fa' }}>
+        <Stack alignItems="center" spacing={2}>
+          <CircularProgress />
+          <Typography variant="body2" color="text.secondary">Cargando sesión…</Typography>
+        </Stack>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>

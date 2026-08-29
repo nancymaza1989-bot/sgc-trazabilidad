@@ -109,15 +109,15 @@ export default function IncidenciasPage() {
     [trabajos],
   );
 
-  const analistaActual = session?.user?.name?.trim() || '';
-  const emparejadas = analistaActual
-    ? evaluaciones.filter((e) =>
-        e.analista && (e.analista === analistaActual
-          || e.analista.toLowerCase().includes(analistaActual.toLowerCase())),
-      )
-    : [];
-  const conEmparejadas = analistaActual && emparejadas.length > 0;
-  const evaluacionesVisibles = conEmparejadas ? emparejadas : evaluaciones;
+  const rolActual = (session?.user?.role || '').toLowerCase();
+  const esAnalista = rolActual === 'analista';
+
+  // Para el Analista mostramos solo las evaluaciones que tienen un analista asignado
+  // (el campo 'analista' es texto libre que escribe el Coordinador, no el email).
+  // Para Coordinador/Administrador se muestran todas.
+  const evaluacionesVisibles = esAnalista
+    ? evaluaciones.filter((e) => Boolean(e.analista && e.analista.trim()))
+    : evaluaciones;
 
   const abrirEvaluacion = async (e: Evaluacion) => {
     await cargarDetalle(e.trabajo_id, e.id);
@@ -235,7 +235,9 @@ export default function IncidenciasPage() {
       <Box sx={{ mb: 2 }}>
         <Chip
           size="small"
-          label={conEmparejadas ? `Mostrando evaluaciones de ${analistaActual}` : 'Mostrando todas las evaluaciones'}
+          label={esAnalista
+            ? `Vista de Analista · ${evaluacionesVisibles.length} evaluación(es) asignada(s)`
+            : 'Mostrando todas las evaluaciones'}
           variant="outlined"
         />
       </Box>
@@ -245,7 +247,9 @@ export default function IncidenciasPage() {
           <Grid item xs={12}>
             <Paper sx={{ p: 3, borderRadius: 2, textAlign: 'center' }}>
               <Typography variant="body1" color="text.secondary">
-                No hay evaluaciones asignadas. El Coordinador debe registrar un trabajo y asignarlo a un analista.
+                {esAnalista
+                  ? 'No tienes evaluaciones asignadas todavía. Cuando el Coordinador te asigne una evaluación aparecerá aquí.'
+                  : 'No hay evaluaciones registradas. El Coordinador debe registrar un trabajo y asignarlo a un analista.'}
               </Typography>
             </Paper>
           </Grid>

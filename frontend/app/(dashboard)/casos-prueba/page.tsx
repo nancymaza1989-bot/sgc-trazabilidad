@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   Box, Paper, Typography, Grid, Chip, Button, TextField, MenuItem, Divider,
   Stack, Alert, CircularProgress, Tooltip, IconButton,
@@ -53,6 +54,8 @@ function tipoPaseInicial(tipoAtencion: string): string {
 
 function CasosPruebaContent() {
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const esAnalista = (session?.user?.role || '').toLowerCase() === 'analista';
 
   const [trabajos, setTrabajos] = useState<Trabajo[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -132,10 +135,11 @@ function CasosPruebaContent() {
     void init();
   }, [cargarTrabajos, cargarDetalle, searchParams]);
 
-  const evaluaciones: Evaluacion[] = useMemo(
-    () => trabajos.flatMap((t) => t.evaluaciones),
-    [trabajos],
-  );
+  const evaluaciones: Evaluacion[] = useMemo(() => {
+    const todas = trabajos.flatMap((t) => t.evaluaciones);
+    // El Analista solo debe ver las evaluaciones que tienen un analista asignado
+    return esAnalista ? todas.filter((e) => Boolean(e.analista && e.analista.trim())) : todas;
+  }, [trabajos, esAnalista]);
 
   const seleccionarEvaluacion = (evaluacionId: string) => {
     const ev = evaluaciones.find((e) => e.id === evaluacionId);
