@@ -6,6 +6,7 @@ nuevos campos del Formato de Incidencia y del Formato de Caso de Prueba (RA-105)
 """
 import json
 from datetime import date
+from typing import Optional
 
 from src.core.constants import EstadoEvaluacion
 
@@ -132,7 +133,7 @@ def evaluacion_to_dict(e) -> dict:
     }
 
 
-def trabajo_to_dict(t) -> dict:
+def trabajo_to_dict(t, asignaciones_por_trabajo: Optional[dict] = None) -> dict:
     adjuntos = []
     for a in t.adjuntos or []:
         adjuntos.append({
@@ -154,7 +155,7 @@ def trabajo_to_dict(t) -> dict:
         "documentacion": t.documentacion,
         "fecha_recepcion": _fecha_iso(t.fecha_recepcion),
         "coordinador": t.coordinador,
-        "asignacion_id": t.asignaciones[0].id if getattr(t, "asignaciones", []) else None,
+        "asignacion_id": (asignaciones_por_trabajo or {}).get(t.id),
         "pendiente_asignacion": len(t.evaluaciones) == 0,
         "adjuntos": adjuntos,
         "evaluaciones": [evaluacion_to_dict(e) for e in t.evaluaciones],

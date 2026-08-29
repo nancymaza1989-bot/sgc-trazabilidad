@@ -184,7 +184,7 @@ class AsignacionModel(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     trabajos = relationship("TrabajoModel", secondary=asignacion_trabajos,
-                            backref="asignaciones", lazy="selectin")
+                            backref="asignaciones")
     analistas = relationship("AsignacionAnalistaModel", back_populates="asignacion",
                              cascade="all, delete-orphan", lazy="selectin")
 

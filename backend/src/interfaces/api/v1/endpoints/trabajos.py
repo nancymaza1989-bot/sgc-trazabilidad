@@ -22,6 +22,7 @@ from src.infrastructure.database.models.trabajo_model import (
     AdjuntoTrabajoModel,
     AsignacionModel,
     AsignacionAnalistaModel,
+    asignacion_trabajos,
 )
 from src.interfaces.api.v1.endpoints.serializers import (
     trabajo_to_dict,
@@ -46,6 +47,21 @@ async def _buscar_trabajo(db: AsyncSession, trabajo_id: UUID) -> TrabajoModel:
     if not t:
         raise HTTPException(status_code=404, detail="Trabajo no encontrado")
     return t
+
+
+async def _mapa_asignacion_por_trabajo(db: AsyncSession, trabajo_ids) -> dict:
+    """Devuelve {trabajo_id: asignacion_id} consultando la tabla puente directamente.
+
+    Evita el eager-loading de la relacion many-to-many (asignaciones) que en modo
+    asíncrono producia bloqueos en /trabajos/.
+    """
+    if not trabajo_ids:
+        return {}
+    stmt = select(asignacion_trabajos.c.trabajo_id, asignacion_trabajos.c.asignacion_id).where(
+        asignacion_trabajos.c.trabajo_id.in_(trabajo_ids)
+    )
+    filas = (await db.execute(stmt)).all()
+    return {row.trabajo_id: row.asignacion_id for row in filas}
 
 
 async def _buscar_evaluacion(db: AsyncSession, trabajo_id: UUID, evaluacion_id: UUID) -> EvaluacionModel:
@@ -125,7 +141,9 @@ async def listar_trabajos(
     items = list((await db.execute(stmt)).scalars().all())
     if pendientes:
         items = [t for t in items if len(t.evaluaciones) == 0]
-    return {"items": [trabajo_to_dict(t) for t in items], "total": len(items)}
+    asignaciones_por_trabajo = await _mapa_asignacion_por_trabajo(db, [t.id for t in items])
+    return {"items": [trabajo_to_dict(t, asignaciones_por_trabajo=asignaciones_por_trabajo) for t in items],
+            "total": len(items)}
 
 
 @router.get("/{trabajo_id}")
