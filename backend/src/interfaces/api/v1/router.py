@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.interfaces.api.v1.endpoints import auth, incidencias, dashboard, trabajos, documentos, configuracion
+from src.interfaces.api.v1.endpoints import auth, incidencias, dashboard, trabajos, documentos, configuracion, usuarios
 
 router = APIRouter()
 
@@ -9,3 +9,4 @@ router.include_router(incidencias.router, prefix="/incidencias", tags=["Incidenc
 router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
 router.include_router(documentos.router, prefix="/documentos", tags=["Documentos PDF"])
 router.include_router(configuracion.router, prefix="/configuracion", tags=["Configuración"])
+router.include_router(usuarios.router, prefix="/usuarios", tags=["Usuarios"])

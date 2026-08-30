@@ -146,6 +146,21 @@ async def listar_trabajos(
             "total": len(items)}
 
 
+@router.get("/asignaciones")
+async def listar_asignaciones(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    stmt = select(AsignacionModel).order_by(AsignacionModel.created_at.desc())
+    items = list((await db.execute(stmt)).scalars().all())
+    return {"items": [asignacion_to_dict(a) for a in items], "total": len(items)}
+
+
+@router.get("/asignaciones/{asignacion_id}")
+async def obtener_asignacion(asignacion_id: UUID, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    a = (await db.execute(select(AsignacionModel).where(AsignacionModel.id == str(asignacion_id)))).scalar_one_or_none()
+    if not a:
+        raise HTTPException(status_code=404, detail="Asignación no encontrada")
+    return asignacion_to_dict(a)
+
+
 @router.get("/{trabajo_id}")
 async def obtener_trabajo(trabajo_id: UUID, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     t = await _buscar_trabajo(db, trabajo_id)
@@ -397,21 +412,6 @@ async def crear_asignacion(
     await db.commit()
     creado = (await db.execute(select(AsignacionModel).where(AsignacionModel.id == asignacion.id))).scalar_one()
     return asignacion_to_dict(creado)
-
-
-@router.get("/asignaciones")
-async def listar_asignaciones(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    stmt = select(AsignacionModel).order_by(AsignacionModel.created_at.desc())
-    items = list((await db.execute(stmt)).scalars().all())
-    return {"items": [asignacion_to_dict(a) for a in items], "total": len(items)}
-
-
-@router.get("/asignaciones/{asignacion_id}")
-async def obtener_asignacion(asignacion_id: UUID, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    a = (await db.execute(select(AsignacionModel).where(AsignacionModel.id == str(asignacion_id)))).scalar_one_or_none()
-    if not a:
-        raise HTTPException(status_code=404, detail="Asignación no encontrada")
-    return asignacion_to_dict(a)
 
 
 # ------------------------------------------------------------------
