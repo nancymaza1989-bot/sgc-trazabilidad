@@ -125,6 +125,9 @@ class AsignacionRequest(BaseModel):
     observaciones: Optional[str] = None
     trabajos_ids: str = ""
     analistas_grupo: str = ""
+    # Mapa opcional de reparto del encargado: {"<trabajo_id>": "<analista>"}.
+    # Sin reparto, cada ticket se asigna al analista encargado.
+    reparto: str = ""
 
 
 class CasoPruebaItemRequest(BaseModel):
@@ -478,11 +481,37 @@ async def crear_asignacion(
     # Vincular los tickets a la asignación (tabla puente asignacion_trabajos)
     # Se inserta directamente en la tabla puente para evitar lazy-load async de la
     # relacion many-to-many (MissingGreenlet / bloqueo en modo asíncrono).
+    # Ademas, se crea una EVALUACION por cada ticket asignado para que el trabajo
+    # aparezca en los módulos Incidencias y Casos de Prueba (mismo flujo que 'Asignar').
+    # El analista encargado (o el reparto del encargado) recibe cada evaluación.
+    reparto = {}
+    if (payload.reparto or "").strip():
+        try:
+            parsed = json.loads(payload.reparto)
+            if isinstance(parsed, dict):
+                reparto = {str(k): str(v).strip() for k, v in parsed.items() if str(v).strip()}
+        except (ValueError, TypeError):
+            reparto = {}
+
     for t in trabajos:
         await db.execute(insert(asignacion_trabajos).values(
             asignacion_id=asignacion.id,
             trabajo_id=t.id,
         ))
+        analista = reparto.get(str(t.id)) or encargado
+        ev = EvaluacionModel(
+            trabajo_id=t.id,
+            analista=analista,
+            fecha_asignacion=fecha_asig,
+            fecha_programada_entrega=fecha_prog,
+            estado=EstadoEvaluacion.EN_PROCESO.value,
+            historial=json.dumps(
+                [{"detalle": f"Pase de versión asignado a {analista} el {fecha_asig.isoformat()}",
+                  "fecha": datetime.utcnow().isoformat()}],
+                ensure_ascii=False,
+            ),
+        )
+        db.add(ev)
 
     await db.commit()
     creado = (await db.execute(select(AsignacionModel).where(AsignacionModel.id == asignacion.id))).scalar_one()

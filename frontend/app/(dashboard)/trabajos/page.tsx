@@ -100,6 +100,7 @@ export default function TrabajosPage() {
   const [fechaAsignacionGrupo, setFechaAsignacionGrupo] = useState(hoyISO());
   const [fechaEntregaGrupo, setFechaEntregaGrupo] = useState('');
   const [obsGrupo, setObsGrupo] = useState('');
+  const [reparto, setReparto] = useState<Record<string, string>>({});
 
   const [proyectos, setProyectos] = useState<string[]>([]);
   const [analistas, setAnalistas] = useState<string[]>([]);
@@ -264,11 +265,13 @@ export default function TrabajosPage() {
         trabajos_ids: ids,
         analistas_grupo: grupoAnalistas.join(','),
         observaciones: obsGrupo || undefined,
+        reparto: JSON.stringify(reparto),
       });
       await cargarTrabajos();
       setDialogoAsignacionGrupo(false);
       setEncargadoSel(''); setGrupoAnalistas([]); setTicketsSeleccionados(new Set());
       setTicketInput(''); setFechaAsignacionGrupo(hoyISO()); setFechaEntregaGrupo(''); setObsGrupo('');
+      setReparto({});
     } catch (err) {
       setErrorAsignacion(extraerError(err));
     } finally {
@@ -341,7 +344,7 @@ export default function TrabajosPage() {
         actions={[
           <Button key="grupo" variant="outlined" color="secondary" startIcon={<GroupsIcon />} onClick={() => {
             setDialogoAsignacionGrupo(true); setEncargadoSel(''); setGrupoAnalistas([]);
-            setTicketsSeleccionados(new Set()); setTicketInput(''); setErrorAsignacion(null);
+            setTicketsSeleccionados(new Set()); setTicketInput(''); setErrorAsignacion(null); setReparto({});
           }}>
             Asignación de Pase de Versión
           </Button>,
@@ -676,6 +679,42 @@ export default function TrabajosPage() {
                 Seleccionar todos los pendientes
               </Button>
             )}
+          </Box>
+
+          {/* Reparto del encargado: asignar cada ticket a un analista del equipo */}
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              Reparto del encargado (a quién llega cada ticket)
+            </Typography>
+            {ticketsSeleccionados.size === 0 && (
+              <Typography variant="caption" color="text.secondary">
+                Seleccione tickets para repartirlos. Sin reparto, todos quedan con el analista encargado.
+              </Typography>
+            )}
+            <Stack spacing={1} sx={{ mt: 1 }}>
+              {trabajosSinEvaluacion
+                .filter((t) => ticketsSeleccionados.has(t.id))
+                .map((t) => (
+                  <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="caption" noWrap sx={{ minWidth: 140, fontSize: 13 }}>
+                      {t.numero_ticket} · {t.proyecto}
+                    </Typography>
+                    <Autocomplete
+                      freeSolo
+                      sx={{ flex: 1 }}
+                      options={opcionesAnalistas}
+                      value={reparto[t.id] ?? encargadoSel}
+                      inputValue={reparto[t.id] ?? encargadoSel}
+                      onInputChange={(_, valor) =>
+                        setReparto((prev) => ({ ...prev, [t.id]: valor }))
+                      }
+                      renderInput={(params) => (
+                        <TextField {...params} size="small" label="Analista (reparto)" />
+                      )}
+                    />
+                  </Box>
+                ))}
+            </Stack>
           </Box>
 
           <TextField fullWidth label="Observaciones" multiline rows={2} value={obsGrupo}
