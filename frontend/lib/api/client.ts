@@ -21,8 +21,20 @@ function guardarToken(token: string) {
   }
 }
 
-apiClient.interceptors.request.use((config) => {
-  const token = obtenerToken();
+apiClient.interceptors.request.use(async (config) => {
+  let token = obtenerToken();
+  if (!token && typeof window !== 'undefined') {
+    try {
+      const session = await getSession();
+      const tokenSesion = (session as any)?.user?.access_token;
+      if (tokenSesion) {
+        token = tokenSesion;
+        guardarToken(tokenSesion);
+      }
+    } catch {
+      // Sin sesión recuperable; se continúa sin token.
+    }
+  }
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
