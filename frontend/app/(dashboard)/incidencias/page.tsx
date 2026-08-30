@@ -170,8 +170,7 @@ export default function IncidenciasPage() {
 
       const { data: incidencia } = await apiClient.post<Incidencia>(
         `/trabajos/${detalle.trabajo_id}/evaluaciones/${detalle.id}/incidencias`,
-        null,
-        { params },
+        params,
       );
 
       if (evidenciaArchivo) {

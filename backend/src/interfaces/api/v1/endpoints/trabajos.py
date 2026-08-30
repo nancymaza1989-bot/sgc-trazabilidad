@@ -53,6 +53,34 @@ class EvidenciaRequest(BaseModel):
     descripcion: Optional[str] = None
 
 
+class CasoPruebaRequest(BaseModel):
+    numero_ticket: Optional[str] = None
+    numero_caso: Optional[str] = None
+    numero_acta_pase: Optional[str] = None
+    tipo_pase: Optional[str] = None
+    campo_componente: Optional[str] = None
+    flujo_componente: Optional[str] = None
+    resultado_prueba: Optional[str] = None
+    resultado: Optional[str] = None
+    fecha_prueba: Optional[str] = None
+    observaciones: Optional[str] = None
+    firma_analista: Optional[str] = None
+    firma_supervisor: Optional[str] = None
+
+
+class IncidenciaRequest(BaseModel):
+    numero_ticket: Optional[str] = None
+    codigo: Optional[str] = None
+    version: Optional[str] = None
+    tipo_error: Optional[str] = "Otros"
+    descripcion: Optional[str] = ""
+    prioridad: Optional[str] = "Medio"
+    es_bloqueante: Optional[bool] = False
+    base_datos: Optional[str] = None
+    motor_bd: Optional[str] = None
+    firma_analista: Optional[str] = None
+
+
 # ------------------------------------------------------------------
 # Utilidades de acceso a datos (modelos SQLAlchemy async)
 # ------------------------------------------------------------------
@@ -435,40 +463,30 @@ async def crear_asignacion(
 async def agregar_caso_prueba(
     trabajo_id: UUID,
     evaluacion_id: UUID,
-    campo_componente: Optional[str] = None,
-    flujo_componente: Optional[str] = None,
-    resultado_prueba: Optional[str] = None,
-    resultado: Optional[str] = None,
-    numero_ticket: Optional[str] = None,
-    numero_caso: Optional[str] = None,
-    numero_acta_pase: Optional[str] = None,
-    tipo_pase: Optional[str] = None,
-    fecha_prueba: str = None,
-    observaciones: Optional[str] = None,
-    firma_analista: Optional[str] = None,
-    firma_supervisor: Optional[str] = None,
+    payload: CasoPruebaRequest,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     e = await _buscar_evaluacion(db, trabajo_id, evaluacion_id)
     correlativo = str(len(e.casos_prueba) + 1)
-    campo = (campo_componente or flujo_componente or "").strip()
-    resultado_final = resultado_prueba or resultado or "Pendiente"
+    campo = (payload.campo_componente or payload.flujo_componente or "").strip()
+    resultado_final = payload.resultado_prueba or payload.resultado or "Pendiente"
 
+    tipo_pase = payload.tipo_pase
     if tipo_pase is None:
         tipo_pase = {"Pase de versión": "Versión", "Pase puntual": "Puntual"}.get(e.trabajo.tipo_atencion, "Puntual")
 
     try:
-        fecha_prueba_dt = date.fromisoformat(fecha_prueba) if fecha_prueba else date.today()
+        fecha_prueba_dt = date.fromisoformat(payload.fecha_prueba) if payload.fecha_prueba else date.today()
     except ValueError:
         raise HTTPException(status_code=400, detail="Fecha de prueba inválida")
 
     caso = CasoPruebaModel(
         evaluacion_id=e.id,
         correlativo=correlativo,
-        numero_caso=numero_caso or correlativo,
-        numero_ticket=numero_ticket or e.trabajo.numero_ticket,
-        numero_acta_pase=numero_acta_pase,
+        numero_caso=payload.numero_caso or correlativo,
+        numero_ticket=payload.numero_ticket or e.trabajo.numero_ticket,
+        numero_acta_pase=payload.numero_acta_pase,
         nombre_analista=current_user.get("id"),
         tipo_pase=tipo_pase,
         fecha_prueba=fecha_prueba_dt,
@@ -476,9 +494,9 @@ async def agregar_caso_prueba(
         campo_componente=campo or None,
         resultado=resultado_final,
         resultado_prueba=resultado_final,
-        observaciones=observaciones,
-        firma_analista=firma_analista,
-        firma_supervisor=firma_supervisor,
+        observaciones=payload.observaciones,
+        firma_analista=payload.firma_analista,
+        firma_supervisor=payload.firma_supervisor,
     )
     db.add(caso)
     await db.commit()
@@ -563,44 +581,35 @@ async def agregar_evidencia_caso(
 async def registrar_incidencia(
     trabajo_id: UUID,
     evaluacion_id: UUID,
-    numero_ticket: Optional[str] = None,
-    codigo: Optional[str] = None,
-    version: Optional[str] = None,
-    tipo_error: str = "Otros",
-    descripcion: str = "",
-    prioridad: str = "Medio",
-    es_bloqueante: bool = False,
-    base_datos: Optional[str] = None,
-    motor_bd: Optional[str] = None,
-    firma_analista: Optional[str] = None,
+    payload: IncidenciaRequest,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     e = await _buscar_evaluacion(db, trabajo_id, evaluacion_id)
     try:
-        tipo = TipoError(tipo_error)
+        tipo = TipoError(payload.tipo_error)
     except ValueError:
         raise HTTPException(status_code=400, detail="Tipo de error inválido")
 
     try:
-        prio = PrioridadIncidencia(prioridad).value
+        prio = PrioridadIncidencia(payload.prioridad).value
     except ValueError:
-        prio = prioridad
+        prio = payload.prioridad
 
     correlativo = str(len(e.incidencias) + 1)
     inc = IncidenciaModel(
         evaluacion_id=e.id,
         correlativo=correlativo,
-        numero_ticket=numero_ticket or e.trabajo.numero_ticket,
-        codigo=codigo,
-        version=version,
+        numero_ticket=payload.numero_ticket or e.trabajo.numero_ticket,
+        codigo=payload.codigo,
+        version=payload.version,
         tipo_error=tipo.value,
-        descripcion=descripcion,
+        descripcion=payload.descripcion,
         prioridad=prio,
-        es_bloqueante=es_bloqueante,
-        base_datos=base_datos,
-        motor_bd=motor_bd,
-        firma_analista=firma_analista,
+        es_bloqueante=payload.es_bloqueante,
+        base_datos=payload.base_datos,
+        motor_bd=payload.motor_bd,
+        firma_analista=payload.firma_analista,
     )
     db.add(inc)
     await db.commit()

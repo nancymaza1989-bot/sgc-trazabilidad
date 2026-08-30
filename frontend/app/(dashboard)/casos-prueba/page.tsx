@@ -210,8 +210,7 @@ function CasosPruebaContent() {
 
       const { data: caso } = await apiClient.post<CasoPrueba>(
         `/trabajos/${detalle.trabajo_id}/evaluaciones/${detalle.id}/casos-prueba`,
-        null,
-        { params },
+        params,
       );
 
       for (const item of casosDinamicos) {
