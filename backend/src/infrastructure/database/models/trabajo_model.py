@@ -116,7 +116,7 @@ class EvidenciaCasoModel(Base):
     id = Column(String(36), primary_key=True, default=_uuid)
     caso_id = Column(String(36), ForeignKey("casos_prueba.id"), nullable=False)
     correlativo = Column(String(20), nullable=False)
-    archivo = Column(String(500), nullable=False)
+    archivo = Column(Text, nullable=False)
     descripcion = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -131,7 +131,7 @@ class EvidenciaCasoItemModel(Base):
     id = Column(String(36), primary_key=True, default=_uuid)
     caso_item_id = Column(String(36), ForeignKey("casos_prueba_items.id"), nullable=False)
     correlativo = Column(String(20), nullable=False)
-    archivo = Column(String(500), nullable=False)
+    archivo = Column(Text, nullable=False)
     descripcion = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -240,7 +240,7 @@ class EvidenciaModel(Base):
     id = Column(String(36), primary_key=True, default=_uuid)
     incidencia_id = Column(String(36), ForeignKey("incidencias_evaluacion.id"), nullable=False)
     correlativo = Column(String(20), nullable=False)
-    archivo = Column(String(500), nullable=False)
+    archivo = Column(Text, nullable=False)
     descripcion = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

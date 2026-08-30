@@ -67,6 +67,10 @@ async def _aplicar_migraciones():
         "ALTER TABLE casos_prueba ADD COLUMN IF NOT EXISTS precondiciones TEXT",
         "ALTER TABLE casos_prueba ADD COLUMN IF NOT EXISTS datos_prueba TEXT",
         "ALTER TABLE casos_prueba ADD COLUMN IF NOT EXISTS resultado_esperado TEXT",
+        # Ampliar columna archivo en evidencias a TEXT para admitir data-URIs de imágenes grandes (screenshots)
+        "ALTER TABLE evidencias_caso ALTER COLUMN archivo TYPE TEXT",
+        "ALTER TABLE evidencias_caso_item ALTER COLUMN archivo TYPE TEXT",
+        "ALTER TABLE evidencias_incidencia ALTER COLUMN archivo TYPE TEXT",
     ]
     async with engine.begin() as conn:
         for ddl in alteraciones:
