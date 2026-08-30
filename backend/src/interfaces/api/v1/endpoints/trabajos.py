@@ -5,7 +5,7 @@ from datetime import date, datetime
 from uuid import UUID
 import json
 
-from sqlalchemy import select
+from sqlalchemy import select, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.constants import EstadoEvaluacion, TipoAtencion, Prioridad, TipoError, PrioridadIncidencia
@@ -476,8 +476,13 @@ async def crear_asignacion(
         db.add(AsignacionAnalistaModel(asignacion_id=asignacion.id, analista=miembro))
 
     # Vincular los tickets a la asignación (tabla puente asignacion_trabajos)
+    # Se inserta directamente en la tabla puente para evitar lazy-load async de la
+    # relacion many-to-many (MissingGreenlet / bloqueo en modo asíncrono).
     for t in trabajos:
-        asignacion.trabajos.append(t)
+        await db.execute(insert(asignacion_trabajos).values(
+            asignacion_id=asignacion.id,
+            trabajo_id=t.id,
+        ))
 
     await db.commit()
     creado = (await db.execute(select(AsignacionModel).where(AsignacionModel.id == asignacion.id))).scalar_one()
