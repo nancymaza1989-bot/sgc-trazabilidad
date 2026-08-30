@@ -80,6 +80,32 @@ async def _aplicar_migraciones():
                 pass
 
 
+async def _sembrar_chatbot_datos():
+    from sqlalchemy import select, func as safunc
+    from src.infrastructure.database.models.chatbot_model import FaqModel, DocumentoNormativoModel
+    async with AsyncSessionLocal() as session:
+        total_faq = (await session.execute(safunc.count(FaqModel.id))).scalar()
+        if not total_faq or total_faq == 0:
+            faqs = [
+                ("¿Cómo registro una incidencia?", "Para registrar una incidencia, ingresa al módulo 'Incidencias' como Analista, selecciona el trabajo y la evaluación asignada, y haz clic en 'Nueva Incidencia'. Rellena los campos y añade evidencias con captura de pantalla o pegándolas directamente (Ctrl+V).", "Incidencias", 1),
+                ("¿Cómo genero el reporte Excel RA-105?", "Dirígete al módulo 'Reportes', selecciona el periodo (Diario, Semanal o Mensual) y haz clic en 'Exportar Excel RA-105'. Se descargará el archivo con las 13 columnas normadas.", "Reportes", 2),
+                ("¿Cómo adjunto imágenes de evidencia?", "En los módulos de Casos de Prueba e Incidencias, cuentas con el campo de evidencia donde puedes hacer clic para subir un archivo o simplemente hacer clic y presionar Ctrl+V para pegar la captura de pantalla directamente.", "Evidencias", 3),
+                ("¿Qué roles existen en el SGC?", "El sistema cuenta con 3 roles principales: Administrador (gestión total y usuarios), Coordinador de Calidad (asignación de trabajos, dashboard y control) y Analista de Calidad (ejecución de pruebas, casos y registro de hallazgos e incidencias).", "General", 4),
+            ]
+            for p, r, c, o in faqs:
+                session.add(FaqModel(pregunta=p, respuesta=r, categoria=c, orden=o))
+
+        total_doc = (await session.execute(safunc.count(DocumentoNormativoModel.id))).scalar()
+        if not total_doc or total_doc == 0:
+            docs = [
+                ("Guía de Gestión de Calidad SGC - Poder Judicial", "Normativa interna para la ejecución de pruebas y control de calidad de software en el Poder Judicial del Perú.", "El Sistema de Gestión de Calidad (SGC) del Poder Judicial establece los lineamientos obligatorios para la recepción, análisis, ejecución de pruebas funcionales y de integración, registro de incidencias bajo formato RA-105, y emisión de informes técnicos con firmas digitales o de aprobación por parte del Coordinador de Calidad.", "Normativa SGC"),
+                ("Estándar ISO/IEC 25010 en Evaluaciones", "Criterios de calidad de producto software aplicados en las evaluaciones del SGC.", "Las evaluaciones consideran las características de adecuación funcional, fiabilidad, compatibilidad, usabilidad, mantenibilidad y seguridad definidas en el estándar internacional ISO/IEC 25010, permitiendo calificar los trabajos con severidades Baja, Media, Alta o Crítica.", "Calidad ISO"),
+            ]
+            for t, d, c, cat in docs:
+                session.add(DocumentoNormativoModel(titulo=t, descripcion=d, contenido=c, categoria=cat))
+            await session.commit()
+
+
 async def init_db():
     async with engine.begin() as conn:
         # Crea cualquier tabla nueva (incluida la tabla puente asignacion_trabajos)
@@ -87,4 +113,6 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
     await _aplicar_migraciones()
     await _sembrar_usuarios()
+    await _sembrar_chatbot_datos()
+
 

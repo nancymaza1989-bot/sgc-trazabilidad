@@ -23,6 +23,7 @@ const MODULOS: MenuItem[] = [
   { titulo: 'Auditoría', ruta: '/auditoria', icono: '🔍', descripcion: 'Trazabilidad y auditoría del sistema' },
   { titulo: 'Usuarios', ruta: '/usuarios', icono: '👥', descripcion: 'Gestión de usuarios, roles y permisos' },
   { titulo: 'Configuración', ruta: '/configuracion', icono: '⚙️', descripcion: 'Mantenedores y parámetros del sistema' },
+  { titulo: 'Asistente IA', ruta: '/chatbot-config', icono: '🤖', descripcion: 'Configuración de Preguntas Frecuentes y Base RAG' },
 ];
 
 export const MENU_SECCIONES: MenuSeccion[] = [
@@ -47,7 +48,7 @@ export const MENU_SECCIONES: MenuSeccion[] = [
   {
     titulo: 'Administración',
     items: MODULOS.filter((m) =>
-      ['usuarios', 'configuracion'].includes(m.ruta.replace('/', '')),
+      ['usuarios', 'configuracion', 'chatbot-config'].includes(m.ruta.replace('/', '')),
     ),
   },
 ];

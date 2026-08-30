@@ -14,6 +14,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { MENU_SECCIONES } from '@/lib/menu';
 import { LOGO_BALANZA, PJ_COLORS } from '@/lib/theme';
+import ChatbotFlotante from '@/components/ChatbotFlotante';
 
 const DRAWER_WIDTH = 264;
 
@@ -229,6 +230,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Typography variant="caption">Av. Paseo de la República S/N · Palacio de Justicia · Lima</Typography>
         </Box>
       </Box>
+      <ChatbotFlotante />
     </Box>
   );
 }
