@@ -20,6 +20,7 @@ const MODULOS: MenuItem[] = [
   { titulo: 'Versiones', ruta: '/versiones', icono: '📦', descripcion: 'Gestión de versiones y despliegues' },
   { titulo: 'Monitoreo', ruta: '/monitoreo', icono: '📈', descripcion: 'Cuadro de mando, alertas y métricas' },
   { titulo: 'Calidad ISO', ruta: '/calidad-iso', icono: '⭐', descripcion: 'Evaluación ISO/IEC 25010' },
+  { titulo: 'Pruebas Automáticas IA', ruta: '/pruebas-ia', icono: '⚡', descripcion: 'Automatización de pruebas, regresión, seguridad y validación de scripts con GLPI' },
   { titulo: 'Reportes', ruta: '/reportes', icono: '📄', descripcion: 'Generación de reportes operativos y de gestión' },
   { titulo: 'Auditoría', ruta: '/auditoria', icono: '🔍', descripcion: 'Trazabilidad y auditoría del sistema' },
   { titulo: 'Usuarios', ruta: '/usuarios', icono: '👥', descripcion: 'Gestión de usuarios, roles y permisos' },
@@ -37,7 +38,7 @@ export const MENU_SECCIONES: MenuSeccion[] = [
   {
     titulo: 'Calidad',
     items: MODULOS.filter((m) =>
-      ['incidencias', 'casos-prueba', 'requerimientos', 'versiones', 'calidad-iso'].includes(m.ruta.replace('/', '')),
+      ['incidencias', 'casos-prueba', 'requerimientos', 'versiones', 'calidad-iso', 'pruebas-ia'].includes(m.ruta.replace('/', '')),
     ),
   },
   {
