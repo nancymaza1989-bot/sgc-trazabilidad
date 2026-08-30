@@ -102,6 +102,7 @@ export default function TrabajosPage() {
   const [obsGrupo, setObsGrupo] = useState('');
 
   const [proyectos, setProyectos] = useState<string[]>([]);
+  const [analistas, setAnalistas] = useState<string[]>([]);
   const [accionPorEvaluacion, setAccionPorEvaluacion] = useState<Record<string, string>>({});
 
   const [search, setSearch] = useState('');
@@ -128,10 +129,24 @@ export default function TrabajosPage() {
     } catch { /* sin catálogo aún */ }
   }, []);
 
+  const cargarAnalistas = useCallback(async () => {
+    try {
+      const { data } = await apiClient.get<{ items: { nombre: string }[] }>('/usuarios/analistas');
+      const nombres = (data.items || []).map((u) => u.nombre).filter(Boolean);
+      setAnalistas(nombres);
+    } catch { /* se deja la lista sugerida */ }
+  }, []);
+
+  const opcionesAnalistas = useMemo(
+    () => Array.from(new Set([...ANALISTAS_SUGERIDOS, ...analistas])),
+    [analistas],
+  );
+
   useEffect(() => {
     void cargarTrabajos();
     void cargarProyectos();
-  }, [cargarTrabajos, cargarProyectos]);
+    void cargarAnalistas();
+  }, [cargarTrabajos, cargarProyectos, cargarAnalistas]);
 
   const kpis = useMemo(() => {
     const evaluaciones: Evaluacion[] = trabajos.flatMap((t) => t.evaluaciones);
@@ -573,7 +588,7 @@ export default function TrabajosPage() {
           {errorAsignacion && <Alert severity="error" sx={{ mt: 1, mb: 1 }}>{errorAsignacion}</Alert>}
           <Autocomplete
             freeSolo
-            options={ANALISTAS_SUGERIDOS}
+            options={opcionesAnalistas}
             inputValue={analistaSel}
             onInputChange={(_, valor) => setAnalistaSel(valor)}
             renderInput={(params) => <TextField {...params} label="Analista de Calidad *" sx={{ mt: 1 }} />}
@@ -606,7 +621,7 @@ export default function TrabajosPage() {
             <Grid item xs={12}>
               <Autocomplete
                 freeSolo
-                options={ANALISTAS_SUGERIDOS}
+                options={opcionesAnalistas}
                 inputValue={encargadoSel}
                 onInputChange={(_, valor) => setEncargadoSel(valor)}
                 renderInput={(params) => <TextField {...params} fullWidth label="Analista encargado *" />}
@@ -624,7 +639,7 @@ export default function TrabajosPage() {
               <Autocomplete
                 multiple
                 freeSolo
-                options={ANALISTAS_SUGERIDOS}
+                options={opcionesAnalistas}
                 value={grupoAnalistas}
                 onChange={(_, valor) => setGrupoAnalistas(valor)}
                 renderInput={(params) => <TextField {...params} fullWidth label="Grupo de analistas (los que atenderán los tickets)" />}

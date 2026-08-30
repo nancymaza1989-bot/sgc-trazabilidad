@@ -58,6 +58,19 @@ async def listar_usuarios(current_user: dict = Depends(get_current_user), db: As
     return [_usuario_a_dict(u) for u in items]
 
 
+@router.get("/analistas")
+async def listar_analistas(current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Devuelve los analistas activos (rol='analista', estado='Activo') para poblar
+    los desplegables 'Analista encargado' y 'Grupo de analistas' del módulo de
+    asignación de pase de versión. Accesible a cualquier usuario autenticado."""
+    stmt = select(UsuarioModel).where(
+        UsuarioModel.rol == "analista",
+        UsuarioModel.estado == "Activo",
+    ).order_by(UsuarioModel.nombre)
+    items = list((await db.execute(stmt)).scalars().all())
+    return {"items": [{"id": u.id, "nombre": u.nombre, "email": u.email} for u in items], "total": len(items)}
+
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def crear_usuario(
     data: UsuarioCreate,
