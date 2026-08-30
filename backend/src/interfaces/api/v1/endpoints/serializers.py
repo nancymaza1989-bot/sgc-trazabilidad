@@ -110,6 +110,7 @@ def incidencia_to_dict(i) -> dict:
         "base_datos": i.base_datos,
         "motor_bd": i.motor_bd,
         "firma_analista": i.firma_analista,
+        "ia_categoria": i.ia_categoria,
         "evidencias": [evidencia_to_dict(e) for e in i.evidencias],
     }
 

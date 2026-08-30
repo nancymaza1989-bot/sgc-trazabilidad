@@ -4,6 +4,7 @@ from typing import Optional
 from datetime import date, datetime
 from uuid import UUID
 import json
+import re
 
 from sqlalchemy import select, insert
 from sqlalchemy.orm import selectinload
@@ -704,6 +705,23 @@ async def registrar_incidencia(
     except ValueError:
         prio = payload.prioridad
 
+    # Alerta IA de incidencias duplicadas (Versión 2)
+    def _tokens(txt: str):
+        return set(re.findall(r'\b\w{4,}\b', (txt or '').lower()))
+    
+    nuevo_tokens = _tokens(payload.descripcion)
+    duplicado_encontrado = None
+    for existente in e.incidencias:
+        ex_tokens = _tokens(existente.descripcion)
+        if nuevo_tokens and ex_tokens:
+            inter = len(nuevo_tokens.intersection(ex_tokens))
+            union = len(nuevo_tokens.union(ex_tokens))
+            if union > 0 and (inter / union) >= 0.35:
+                duplicado_encontrado = existente.correlativo
+                break
+    
+    ia_cat = f"Posible duplicado de Incidencia #{duplicado_encontrado}" if duplicado_encontrado else "Incidencia Única"
+
     correlativo = str(len(e.incidencias) + 1)
     inc = IncidenciaModel(
         evaluacion_id=e.id,
@@ -718,6 +736,7 @@ async def registrar_incidencia(
         base_datos=payload.base_datos,
         motor_bd=payload.motor_bd,
         firma_analista=payload.firma_analista,
+        ia_categoria=ia_cat,
     )
     db.add(inc)
     await db.commit()

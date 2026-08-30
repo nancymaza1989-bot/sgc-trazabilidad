@@ -74,6 +74,10 @@ export default function IncidenciasPage() {
   const [pdfGenerando, setPdfGenerando] = useState<string | null>(null);
   const [errorPdf, setErrorPdf] = useState<string | null>(null);
 
+  const [searchEval, setSearchEval] = useState('');
+  const [fEstadoEval, setFEstadoEval] = useState('todos');
+  const [fPrioridadEval, setFPrioridadEval] = useState('todos');
+
   const cargarTrabajos = useCallback(async () => {
     setCargando(true);
     setError(null);
@@ -117,9 +121,17 @@ export default function IncidenciasPage() {
   // Para el Analista mostramos solo las evaluaciones que tienen un analista asignado
   // (el campo 'analista' es texto libre que escribe el Coordinador, no el email).
   // Para Coordinador/Administrador se muestran todas.
-  const evaluacionesVisibles = esAnalista
-    ? evaluaciones.filter((e) => Boolean(e.analista && e.analista.trim()))
-    : evaluaciones;
+  const evaluacionesVisibles = useMemo(() => {
+    const lista = esAnalista
+      ? evaluaciones.filter((e) => Boolean(e.analista && e.analista.trim()))
+      : evaluaciones;
+    return lista.filter((e) => {
+      if (searchEval && !`${e.numero_ticket} ${e.proyecto} ${e.analista || ''}`.toLowerCase().includes(searchEval.toLowerCase())) return false;
+      if (fEstadoEval !== 'todos' && e.estado !== fEstadoEval) return false;
+      if (fPrioridadEval !== 'todos' && e.prioridad !== fPrioridadEval) return false;
+      return true;
+    });
+  }, [evaluaciones, esAnalista, searchEval, fEstadoEval, fPrioridadEval]);
 
   const abrirEvaluacion = async (e: Evaluacion) => {
     await cargarDetalle(e.trabajo_id, e.id);
@@ -240,6 +252,51 @@ export default function IncidenciasPage() {
           {error}
         </Alert>
       )}
+
+      <Paper sx={{ p: 2, mb: 3, borderRadius: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        <TextField
+          size="small"
+          label="Buscar ticket, proyecto, analista..."
+          value={searchEval}
+          onChange={(e) => setSearchEval(e.target.value)}
+          sx={{ minWidth: 240, flexGrow: 1 }}
+        />
+        <TextField
+          select
+          size="small"
+          label="Estado"
+          value={fEstadoEval}
+          onChange={(e) => setFEstadoEval(e.target.value)}
+          sx={{ minWidth: 160 }}
+        >
+          <MenuItem value="todos">Todos los estados</MenuItem>
+          <MenuItem value="Pendiente de Entrega">Pendiente de Entrega</MenuItem>
+          <MenuItem value="En Proceso">En Proceso</MenuItem>
+          <MenuItem value="Cerrado">Cerrado</MenuItem>
+        </TextField>
+        <TextField
+          select
+          size="small"
+          label="Prioridad"
+          value={fPrioridadEval}
+          onChange={(e) => setFPrioridadEval(e.target.value)}
+          sx={{ minWidth: 160 }}
+        >
+          <MenuItem value="todos">Todas las prioridades</MenuItem>
+          <MenuItem value="Alta">Alta</MenuItem>
+          <MenuItem value="Media">Media</MenuItem>
+          <MenuItem value="Baja">Baja</MenuItem>
+        </TextField>
+        {(searchEval || fEstadoEval !== 'todos' || fPrioridadEval !== 'todos') && (
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => { setSearchEval(''); setFEstadoEval('todos'); setFPrioridadEval('todos'); }}
+          >
+            Limpiar filtros
+          </Button>
+        )}
+      </Paper>
 
       <Grid container spacing={2}>
         {evaluacionesVisibles.length === 0 && !error && (
