@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import re
-from unicodedata import normalform
+from unicodedata import normalize
 
 from src.core.dependencies import get_current_user
 from src.infrastructure.database.connection import get_db
@@ -40,7 +40,7 @@ class PreguntaRequest(BaseModel):
 def _normalizar(texto: str) -> set:
     if not texto:
         return set()
-    nfkd = normalform('NFKD', texto.lower())
+    nfkd = normalize('NFKD', texto.lower())
     sin_tildes = "".join([c for c in nfkd if not ord(c) in range(768, 879)])
     palabras = re.findall(r'\b\w{3,}\b', sin_tildes)  # palabras de 3+ letras
     stopwords = {'que', 'como', 'para', 'con', 'las', 'los', 'del', 'una', 'por', 'sobre', 'este', 'esta'}
