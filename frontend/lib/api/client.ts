@@ -48,19 +48,33 @@ apiClient.interceptors.response.use(
     const estado = error.response?.status;
     const config = error.config as (InternalAxiosRequestConfig & { _reintentado?: boolean }) | undefined;
 
-    if ((estado === 401 || estado === 403) && config && !config._reintentado) {
-      config._reintentado = true;
+    if ((estado === 401 || estado === 403) && config) {
+      if (!config._reintentado) {
+        config._reintentado = true;
+        try {
+          const session = await getSession();
+          const tokenNuevo = (session as any)?.user?.access_token;
+          if (tokenNuevo) {
+            guardarToken(tokenNuevo);
+            config.headers = config.headers || {};
+            config.headers.Authorization = `Bearer ${tokenNuevo}`;
+            return apiClient(config);
+          }
+        } catch {
+          // Se intenta forzar la reautenticación abajo.
+        }
+      }
+      // El token (aun el de la sesion) es invalido: limpiar y pedir login de nuevo.
       try {
-        const session = await getSession();
-        const tokenNuevo = (session as any)?.user?.access_token;
-        if (tokenNuevo) {
-          guardarToken(tokenNuevo);
-          config.headers = config.headers || {};
-          config.headers.Authorization = `Bearer ${tokenNuevo}`;
-          return apiClient(config);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('access_token');
+          const { signOut } = await import('next-auth/react');
+          if (window.location.pathname !== '/login') {
+            await signOut({ callbackUrl: '/login' });
+          }
         }
       } catch {
-        // Sin token recuperable, se devuelve el error original.
+        // No se pudo redirigir; se devuelve el error original.
       }
     }
     return Promise.reject(error);
