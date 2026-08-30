@@ -336,7 +336,7 @@ def _build_pdf_caso_prueba(datos: dict) -> bytes:
              Paragraph(_texto_evidencias(c.get("evidencias") or []), STY_CELDA)]
             for c in casos
         ]
-        tabla_casos = Table(filas_casos, colWidths=[32, ANCHO - 225, 65, 160], repeatRows=1)
+        tabla_casos = Table(filas_casos, colWidths=[35, ANCHO - 265, 70, 160], repeatRows=1)
         tabla_casos.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a3a6b")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
