@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { signIn, getSession } from 'next-auth/react';
 import {
   Box, Paper, Typography, TextField, Button, Alert, CircularProgress,
   Divider, Stack,
@@ -31,6 +31,12 @@ export default function LoginPage() {
       if (result?.error) {
         setError('Credenciales inválidas');
         return;
+      }
+
+      const session = await getSession();
+      const token = (session as any)?.user?.access_token;
+      if (token) {
+        localStorage.setItem('access_token', token);
       }
 
       router.push('/dashboard');
