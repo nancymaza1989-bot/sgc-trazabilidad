@@ -1,7 +1,9 @@
 """Endpoints del módulo Configuración: catálogo de proyectos (combobox editable)."""
 from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +15,11 @@ from src.interfaces.api.v1.endpoints.serializers import proyecto_to_dict
 router = APIRouter()
 
 
+class ProyectoRequest(BaseModel):
+    nombre: Optional[str] = None
+    activo: Optional[bool] = None
+
+
 @router.get("/proyectos")
 async def listar_proyectos(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     stmt = select(ProyectoModel).order_by(ProyectoModel.nombre)
@@ -21,8 +28,8 @@ async def listar_proyectos(current_user = Depends(get_current_user), db: AsyncSe
 
 
 @router.post("/proyectos", status_code=status.HTTP_201_CREATED)
-async def crear_proyecto(nombre: str, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    nombre = (nombre or "").strip()
+async def crear_proyecto(payload: ProyectoRequest, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    nombre = (payload.nombre or "").strip()
     if not nombre:
         raise HTTPException(status_code=400, detail="El nombre del proyecto es obligatorio")
     existe = (await db.execute(select(ProyectoModel).where(ProyectoModel.nombre == nombre))).scalar_one_or_none()
@@ -38,16 +45,15 @@ async def crear_proyecto(nombre: str, current_user = Depends(get_current_user), 
 @router.patch("/proyectos/{proyecto_id}")
 async def actualizar_proyecto(
     proyecto_id: str,
-    nombre: str = None,
-    activo: bool = None,
+    payload: ProyectoRequest,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     p = (await db.execute(select(ProyectoModel).where(ProyectoModel.id == proyecto_id))).scalar_one_or_none()
     if not p:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
-    if nombre is not None:
-        n = nombre.strip()
+    if payload.nombre is not None:
+        n = payload.nombre.strip()
         if not n:
             raise HTTPException(status_code=400, detail="El nombre del proyecto es obligatorio")
         duplicado = (await db.execute(
@@ -56,8 +62,8 @@ async def actualizar_proyecto(
         if duplicado:
             raise HTTPException(status_code=400, detail="El proyecto ya existe")
         p.nombre = n
-    if activo is not None:
-        p.activo = activo
+    if payload.activo is not None:
+        p.activo = payload.activo
     await db.commit()
     actualizado = (await db.execute(select(ProyectoModel).where(ProyectoModel.id == proyecto_id))).scalar_one()
     return proyecto_to_dict(actualizado)

@@ -217,8 +217,7 @@ function CasosPruebaContent() {
         if (!item.descripcion.trim()) continue;
         const { data: casoItem } = await apiClient.post<CasoPruebaItem>(
           `/trabajos/${detalle.trabajo_id}/evaluaciones/${detalle.id}/casos-prueba/${caso.id}/casos`,
-          null,
-          { params: { numero: '', descripcion: item.descripcion.trim() } },
+          { numero: '', descripcion: item.descripcion.trim() },
         );
         for (const ev of item.evidencias) {
           if (!ev.archivo) continue;

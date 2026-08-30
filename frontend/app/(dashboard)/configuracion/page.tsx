@@ -55,9 +55,9 @@ export default function ConfiguracionPage() {
     setErrorForm(null);
     try {
       if (editando) {
-        await apiClient.patch(`/configuracion/proyectos/${editando.id}`, null, { params: { nombre, activo } });
+        await apiClient.patch(`/configuracion/proyectos/${editando.id}`, { nombre, activo });
       } else {
-        await apiClient.post('/configuracion/proyectos', null, { params: { nombre } });
+        await apiClient.post('/configuracion/proyectos', { nombre });
       }
       await cargar();
       setDialogo(false);
@@ -133,7 +133,7 @@ export default function ConfiguracionPage() {
               <Chip key={a} label={a} variant="outlined" clickable
                 onClick={async () => {
                   try {
-                    await apiClient.post('/configuracion/proyectos', null, { params: { nombre: a } });
+                    await apiClient.post('/configuracion/proyectos', { nombre: a });
                     await cargar();
                   } catch { /* ya existe */ }
                 }} />

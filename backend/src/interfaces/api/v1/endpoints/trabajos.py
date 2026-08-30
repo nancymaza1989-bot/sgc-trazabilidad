@@ -81,6 +81,57 @@ class IncidenciaRequest(BaseModel):
     firma_analista: Optional[str] = None
 
 
+class TrabajoRequest(BaseModel):
+    numero_ticket: str
+    proyecto: str
+    tipo_atencion: str
+    prioridad: str = "Media"
+    instrucciones: str = ""
+    documentacion: Optional[str] = None
+    fecha_recepcion: Optional[str] = None
+
+
+class ActualizarTrabajoRequest(BaseModel):
+    numero_ticket: Optional[str] = None
+    proyecto: Optional[str] = None
+    tipo_atencion: Optional[str] = None
+    prioridad: Optional[str] = None
+    instrucciones: Optional[str] = None
+    documentacion: Optional[str] = None
+    fecha_recepcion: Optional[str] = None
+
+
+class AsignacionEvaluacionRequest(BaseModel):
+    analista: str
+    fecha_asignacion: str
+    fecha_programada_entrega: Optional[str] = None
+
+
+class CambiarEstadoRequest(BaseModel):
+    estado: str
+    detalle: str = ""
+
+
+class EntregarRequest(BaseModel):
+    fecha_entrega: str
+    resultado: str = ""
+
+
+class AsignacionRequest(BaseModel):
+    analista_encargado: str
+    fecha_asignacion: str
+    fecha_programada_entrega: Optional[str] = None
+    nombre: Optional[str] = None
+    observaciones: Optional[str] = None
+    trabajos_ids: str = ""
+    analistas_grupo: str = ""
+
+
+class CasoPruebaItemRequest(BaseModel):
+    numero: Optional[str] = None
+    descripcion: str = ""
+
+
 # ------------------------------------------------------------------
 # Utilidades de acceso a datos (modelos SQLAlchemy async)
 # ------------------------------------------------------------------
@@ -142,30 +193,24 @@ def _estado_valido(estado: str, entidad: str = "Estado") -> EstadoEvaluacion:
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def crear_trabajo(
-    numero_ticket: str,
-    proyecto: str,
-    tipo_atencion: str,
-    prioridad: str = "Media",
-    instrucciones: str = "",
-    documentacion: Optional[str] = None,
-    fecha_recepcion: str = None,
+    payload: TrabajoRequest,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        tipo = TipoAtencion(tipo_atencion)
-        prio = Prioridad(prioridad)
-        fecha_rec = date.fromisoformat(fecha_recepcion) if fecha_recepcion else date.today()
+        tipo = TipoAtencion(payload.tipo_atencion)
+        prio = Prioridad(payload.prioridad)
+        fecha_rec = date.fromisoformat(payload.fecha_recepcion) if payload.fecha_recepcion else date.today()
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=400, detail=f"Valor inválido: {e}")
 
     trabajo = TrabajoModel(
-        numero_ticket=numero_ticket,
-        proyecto=proyecto,
+        numero_ticket=payload.numero_ticket,
+        proyecto=payload.proyecto,
         tipo_atencion=tipo.value,
         prioridad=prio.value,
-        instrucciones=instrucciones,
-        documentacion=documentacion,
+        instrucciones=payload.instrucciones,
+        documentacion=payload.documentacion,
         fecha_recepcion=fecha_rec,
         coordinador="Coordinador de Calidad",
     )
@@ -214,34 +259,28 @@ async def obtener_trabajo(trabajo_id: UUID, current_user = Depends(get_current_u
 @router.patch("/{trabajo_id}")
 async def actualizar_trabajo(
     trabajo_id: UUID,
-    numero_ticket: Optional[str] = None,
-    proyecto: Optional[str] = None,
-    tipo_atencion: Optional[str] = None,
-    prioridad: Optional[str] = None,
-    instrucciones: Optional[str] = None,
-    documentacion: Optional[str] = None,
-    fecha_recepcion: Optional[str] = None,
+    payload: ActualizarTrabajoRequest,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     trabajo = await _buscar_trabajo(db, trabajo_id)
     try:
-        if numero_ticket is not None:
-            trabajo.numero_ticket = numero_ticket
-        if proyecto is not None:
-            trabajo.proyecto = proyecto
-        if tipo_atencion is not None:
-            trabajo.tipo_atencion = TipoAtencion(tipo_atencion).value
-        if prioridad is not None:
-            trabajo.prioridad = Prioridad(prioridad).value
-        if fecha_recepcion is not None:
-            trabajo.fecha_recepcion = date.fromisoformat(fecha_recepcion)
+        if payload.numero_ticket is not None:
+            trabajo.numero_ticket = payload.numero_ticket
+        if payload.proyecto is not None:
+            trabajo.proyecto = payload.proyecto
+        if payload.tipo_atencion is not None:
+            trabajo.tipo_atencion = TipoAtencion(payload.tipo_atencion).value
+        if payload.prioridad is not None:
+            trabajo.prioridad = Prioridad(payload.prioridad).value
+        if payload.fecha_recepcion is not None:
+            trabajo.fecha_recepcion = date.fromisoformat(payload.fecha_recepcion)
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=400, detail=f"Valor inválido: {e}")
-    if instrucciones is not None:
-        trabajo.instrucciones = instrucciones
-    if documentacion is not None:
-        trabajo.documentacion = documentacion
+    if payload.instrucciones is not None:
+        trabajo.instrucciones = payload.instrucciones
+    if payload.documentacion is not None:
+        trabajo.documentacion = payload.documentacion
     await db.commit()
     creado = (await db.execute(select(TrabajoModel).where(TrabajoModel.id == str(trabajo_id)))).scalar_one()
     return trabajo_to_dict(creado)
@@ -263,27 +302,25 @@ async def eliminar_trabajo(trabajo_id: UUID, current_user = Depends(get_current_
 @router.post("/{trabajo_id}/evaluaciones", status_code=status.HTTP_201_CREATED)
 async def asignar_evaluacion(
     trabajo_id: UUID,
-    analista: str,
-    fecha_asignacion: str,
-    fecha_programada_entrega: Optional[str] = None,
+    payload: AsignacionEvaluacionRequest,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     t = await _buscar_trabajo(db, trabajo_id)
     try:
-        fecha_asig = date.fromisoformat(fecha_asignacion)
-        fecha_prog = date.fromisoformat(fecha_programada_entrega) if fecha_programada_entrega else None
+        fecha_asig = date.fromisoformat(payload.fecha_asignacion)
+        fecha_prog = date.fromisoformat(payload.fecha_programada_entrega) if payload.fecha_programada_entrega else None
     except ValueError:
         raise HTTPException(status_code=400, detail="Fecha de asignación inválida")
 
     ev = EvaluacionModel(
         trabajo_id=t.id,
-        analista=analista,
+        analista=payload.analista,
         fecha_asignacion=fecha_asig,
         fecha_programada_entrega=fecha_prog,
         estado=EstadoEvaluacion.EN_PROCESO.value,
         historial=json.dumps(
-            [{"detalle": f"Asignada a {analista} el {fecha_asig.isoformat()}",
+            [{"detalle": f"Asignada a {payload.analista} el {fecha_asig.isoformat()}",
               "fecha": datetime.utcnow().isoformat()}],
             ensure_ascii=False,
         ),
@@ -313,15 +350,14 @@ async def obtener_evaluacion(trabajo_id: UUID, evaluacion_id: UUID, current_user
 async def cambiar_estado_evaluacion(
     trabajo_id: UUID,
     evaluacion_id: UUID,
-    estado: str,
-    detalle: str = "",
+    payload: CambiarEstadoRequest,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     e = await _buscar_evaluacion(db, trabajo_id, evaluacion_id)
-    nuevo = _estado_valido(estado)
+    nuevo = _estado_valido(payload.estado)
     e.estado = nuevo.value
-    _agregar_historial(e, f"Estado: {nuevo.value}. {detalle}")
+    _agregar_historial(e, f"Estado: {nuevo.value}. {payload.detalle}")
     await db.commit()
     creado = (await db.execute(select(EvaluacionModel).where(EvaluacionModel.id == e.id))).scalar_one()
     return evaluacion_to_dict(creado)
@@ -331,20 +367,19 @@ async def cambiar_estado_evaluacion(
 async def entregar_evaluacion(
     trabajo_id: UUID,
     evaluacion_id: UUID,
-    fecha_entrega: str,
-    resultado: str = "",
+    payload: EntregarRequest,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     e = await _buscar_evaluacion(db, trabajo_id, evaluacion_id)
     try:
-        fecha_entrega_dt = date.fromisoformat(fecha_entrega)
+        fecha_entrega_dt = date.fromisoformat(payload.fecha_entrega)
     except ValueError:
         raise HTTPException(status_code=400, detail="Fecha de entrega inválida")
     e.fecha_real_entrega = fecha_entrega_dt
-    e.resultado = resultado
+    e.resultado = payload.resultado
     e.estado = EstadoEvaluacion.ENTREGADO.value
-    _agregar_historial(e, f"Entregado el {fecha_entrega_dt.isoformat()}. Resultado: {resultado or 'N/P'}")
+    _agregar_historial(e, f"Entregado el {fecha_entrega_dt.isoformat()}. Resultado: {payload.resultado or 'N/P'}")
     await db.commit()
     creado = (await db.execute(select(EvaluacionModel).where(EvaluacionModel.id == e.id))).scalar_one()
     return evaluacion_to_dict(creado)
@@ -398,28 +433,22 @@ async def eliminar_adjunto(
 
 @router.post("/asignaciones", status_code=status.HTTP_201_CREATED)
 async def crear_asignacion(
-    analista_encargado: str,
-    fecha_asignacion: str,
-    fecha_programada_entrega: Optional[str] = None,
-    nombre: Optional[str] = None,
-    observaciones: Optional[str] = None,
-    trabajos_ids: str = "",       # lista separada por comas de ids de trabajos
-    analistas_grupo: str = "",    # lista separada por comas de analistas del grupo
+    payload: AsignacionRequest,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     from src.infrastructure.database.models.trabajo_model import TrabajoModel
-    encargado = (analista_encargado or "").strip()
+    encargado = (payload.analista_encargado or "").strip()
     if not encargado:
         raise HTTPException(status_code=400, detail="Debe indicar el analista encargado")
 
     try:
-        fecha_asig = date.fromisoformat(fecha_asignacion)
-        fecha_prog = date.fromisoformat(fecha_programada_entrega) if fecha_programada_entrega else None
+        fecha_asig = date.fromisoformat(payload.fecha_asignacion)
+        fecha_prog = date.fromisoformat(payload.fecha_programada_entrega) if payload.fecha_programada_entrega else None
     except ValueError:
         raise HTTPException(status_code=400, detail="Fecha de asignación inválida")
 
-    ids = [x.strip() for x in (trabajos_ids or "").split(",") if x.strip()]
+    ids = [x.strip() for x in (payload.trabajos_ids or "").split(",") if x.strip()]
     if not ids:
         raise HTTPException(status_code=400, detail="Debe seleccionar al menos un ticket/trabajo")
 
@@ -431,18 +460,18 @@ async def crear_asignacion(
         trabajos.append(t)
 
     asignacion = AsignacionModel(
-        nombre=(nombre or "").strip() or None,
+        nombre=(payload.nombre or "").strip() or None,
         analista_encargado=encargado,
         fecha_asignacion=fecha_asig,
         fecha_programada_entrega=fecha_prog,
         estado="Asignado",
-        observaciones=observaciones or None,
+        observaciones=payload.observaciones or None,
     )
     db.add(asignacion)
     await db.flush()
 
     # Grupo de analistas
-    grupo = [x.strip() for x in (analistas_grupo or "").split(",") if x.strip()]
+    grupo = [x.strip() for x in (payload.analistas_grupo or "").split(",") if x.strip()]
     for miembro in grupo:
         db.add(AsignacionAnalistaModel(asignacion_id=asignacion.id, analista=miembro))
 
@@ -509,8 +538,7 @@ async def agregar_caso_prueba_item(
     trabajo_id: UUID,
     evaluacion_id: UUID,
     caso_id: UUID,
-    numero: Optional[str] = None,
-    descripcion: str = "",
+    payload: CasoPruebaItemRequest,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -518,8 +546,8 @@ async def agregar_caso_prueba_item(
     caso = next((c for c in e.casos_prueba if c.id == str(caso_id)), None)
     if not caso:
         raise HTTPException(status_code=404, detail="Caso de prueba no encontrado")
-    numero_valor = numero or str(len(caso.casos) + 1)
-    item = CasoPruebaItemModel(caso_prueba_id=caso.id, numero=numero_valor, descripcion=descripcion)
+    numero_valor = payload.numero or str(len(caso.casos) + 1)
+    item = CasoPruebaItemModel(caso_prueba_id=caso.id, numero=numero_valor, descripcion=payload.descripcion)
     db.add(item)
     await db.commit()
     creado = (await db.execute(select(CasoPruebaItemModel).where(CasoPruebaItemModel.id == item.id))).scalar_one()

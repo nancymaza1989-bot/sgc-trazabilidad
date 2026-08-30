@@ -189,7 +189,7 @@ export default function TrabajosPage() {
       };
       if (form.documentacion.trim()) params.documentacion = form.documentacion.trim();
 
-      const { data } = await apiClient.post<{ id: string }>('/trabajos/', null, { params });
+      const { data } = await apiClient.post<{ id: string }>('/trabajos/', params);
       const trabajoId = data.id;
 
       // Subir adjuntos después de crear el trabajo
@@ -219,13 +219,10 @@ export default function TrabajosPage() {
     try {
       await apiClient.post(
         `/trabajos/${dialogoAsignacion.id}/evaluaciones`,
-        null,
         {
-          params: {
-            analista: analistaSel.trim(),
-            fecha_asignacion: hoyISO(),
-            fecha_programada_entrega: fechaProgramada,
-          },
+          analista: analistaSel.trim(),
+          fecha_asignacion: hoyISO(),
+          fecha_programada_entrega: fechaProgramada,
         },
       );
       await cargarTrabajos();
@@ -245,15 +242,13 @@ export default function TrabajosPage() {
     setErrorAsignacion(null);
     try {
       const ids = Array.from(ticketsSeleccionados).join(',');
-      await apiClient.post('/trabajos/asignaciones', null, {
-        params: {
-          analista_encargado: encargadoSel.trim(),
-          fecha_asignacion: fechaAsignacionGrupo,
-          fecha_programada_entrega: fechaEntregaGrupo || undefined,
-          trabajos_ids: ids,
-          analistas_grupo: grupoAnalistas.join(','),
-          observaciones: obsGrupo || undefined,
-        },
+      await apiClient.post('/trabajos/asignaciones', {
+        analista_encargado: encargadoSel.trim(),
+        fecha_asignacion: fechaAsignacionGrupo,
+        fecha_programada_entrega: fechaEntregaGrupo || undefined,
+        trabajos_ids: ids,
+        analistas_grupo: grupoAnalistas.join(','),
+        observaciones: obsGrupo || undefined,
       });
       await cargarTrabajos();
       setDialogoAsignacionGrupo(false);
@@ -280,8 +275,7 @@ export default function TrabajosPage() {
     try {
       await apiClient.post(
         `/trabajos/${t.id}/evaluaciones/${ev.id}/entregar`,
-        null,
-        { params: { fecha_entrega: hoyISO() } },
+        { fecha_entrega: hoyISO() },
       );
       await cargarTrabajos();
     } catch (err) {
@@ -301,8 +295,7 @@ export default function TrabajosPage() {
     try {
       await apiClient.post(
         `/trabajos/${t.id}/evaluaciones/${ev.id}/cambiar-estado`,
-        null,
-        { params: { estado: 'Cerrado' } },
+        { estado: 'Cerrado' },
       );
       await cargarTrabajos();
     } catch (err) {
