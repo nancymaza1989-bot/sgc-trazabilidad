@@ -379,8 +379,8 @@ def _build_pdf_caso_prueba(datos: dict) -> bytes:
         Spacer(1, 12),
     ]
 
-    firma_analista = KeepTogether(_flujo_firma("FIRMA DEL ANALISTA", datos.get("firma_analista")))
-    firma_supervisor = KeepTogether(_flujo_firma("FIRMA DEL SUPERVISOR (COORDINADOR)", datos.get("firma_supervisor")))
+    firma_analista = _flujo_firma("FIRMA DEL ANALISTA", datos.get("firma_analista"))
+    firma_supervisor = _flujo_firma("FIRMA DEL SUPERVISOR (COORDINADOR)", datos.get("firma_supervisor"))
     tabla_firmas = Table([[firma_analista, firma_supervisor]], colWidths=[ANCHO / 2.0, ANCHO / 2.0])
     tabla_firmas.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
