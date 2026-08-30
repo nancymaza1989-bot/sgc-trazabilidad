@@ -1,7 +1,14 @@
 'use client';
 
-import { Box, Paper, Typography } from '@mui/material';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Box, Paper, Typography, Button, Dialog, DialogTitle, DialogContent,
+  DialogActions, TextField, MenuItem, Alert
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import DataTable, { ColumnDef } from '@/components/common/DataTable';
+import apiClient from '@/lib/api/client';
+import { PJ_COLORS } from '@/lib/theme';
 
 interface Version {
   id: string;
@@ -13,18 +20,54 @@ interface Version {
   cambios: string;
 }
 
-const versiones: Version[] = [
-  { id: 'V-004', version: 'v1.2.3', ambiente: 'Producción', responsable: 'Carlos Ruiz', fecha: '2024/01/14', estado: 'Estable', cambios: 'Fix login, exportación' },
-  { id: 'V-003', version: 'v1.2.2', ambiente: 'Pruebas', responsable: 'Luis Torres', fecha: '2024/01/12', estado: 'En validación', cambios: 'Nueva pantalla auditoría' },
-  { id: 'V-002', version: 'v1.2.1', ambiente: 'Desarrollo', responsable: 'Ana Gómez', fecha: '2024/01/10', estado: 'Inestable', cambios: 'Integración firma digital' },
-  { id: 'V-001', version: 'v1.2.0', ambiente: 'Producción', responsable: 'Juan Pérez', fecha: '2024/01/05', estado: 'Estable', cambios: 'Módulo de requerimientos' },
-];
-
 const estadoColor: Record<string, string> = {
   'Estable': 'success', 'En validación': 'info', 'Inestable': 'error', 'En desarrollo': 'default',
 };
 
 export default function VersionesPage() {
+  const [data, setData] = useState<Version[]>([]);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [version, setVersion] = useState('');
+  const [ambiente, setAmbiente] = useState('Pruebas');
+  const [responsable, setResponsable] = useState('');
+  const [cambios, setCambios] = useState('');
+  const [mensaje, setMensaje] = useState<string | null>(null);
+
+  const cargarVersiones = useCallback(async () => {
+    try {
+      const resp = await apiClient.get('/versiones');
+      setData(resp.data.items || []);
+    } catch {
+      // fallback
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarVersiones();
+  }, [cargarVersiones]);
+
+  const guardarVersion = async () => {
+    if (!version.trim() || !responsable.trim()) return;
+    try {
+      await apiClient.post('/versiones', {
+        version,
+        ambiente,
+        responsable,
+        estado: 'En validación',
+        cambios,
+        fecha: new Date().toISOString().slice(0, 10).replace(/-/g, '/')
+      });
+      setMensaje('Versión registrada con éxito.');
+      setOpenDialog(false);
+      setVersion('');
+      setResponsable('');
+      setCambios('');
+      cargarVersiones();
+    } catch {
+      setMensaje('Error al registrar versión.');
+    }
+  };
+
   const columns: ColumnDef<Version>[] = [
     { key: 'id', label: 'ID' },
     { key: 'version', label: 'Versión' },
@@ -37,24 +80,50 @@ export default function VersionesPage() {
 
   return (
     <Box>
+      {mensaje && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMensaje(null)}>{mensaje}</Alert>}
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setOpenDialog(true)}
+          sx={{ bgcolor: PJ_COLORS.primaryDark, '&:hover': { bgcolor: PJ_COLORS.primary } }}
+        >
+          Nueva Versión
+        </Button>
+      </Box>
+
       <DataTable
-        title="Versiones y Despliegues"
-        subtitle="Registro de versiones de aplicaciones y componentes"
+        title="Versiones y Despliegues Automatizados"
+        subtitle="Registro de versiones de aplicaciones, pases a producción y control de estabilidad"
         columns={columns}
-        data={versiones}
+        data={data}
         searchPlaceholder="Buscar versión..."
-        newLabel="Nueva Versión"
+        newLabel=""
         filters={[
           { key: 'ambiente', label: 'Ambiente', values: ['Desarrollo', 'Pruebas', 'Producción'] },
           { key: 'estado', label: 'Estado', values: Object.keys(estadoColor) },
         ]}
       />
-      <Paper sx={{ p: 3, borderRadius: 2, mt: 2 }}>
-        <Typography variant="h6" gutterBottom>Estabilidad de Versiones</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Última versión en producción: v1.2.3 · Índice de estabilidad: 92%
-        </Typography>
-      </Paper>
+
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Registrar Nueva Versión o Despliegue</DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField label="Número de Versión (ej. v1.2.4)" fullWidth size="small" value={version} onChange={(e) => setVersion(e.target.value)} />
+            <TextField select label="Ambiente" fullWidth size="small" value={ambiente} onChange={(e) => setAmbiente(e.target.value)}>
+              <MenuItem value="Desarrollo">Desarrollo</MenuItem>
+              <MenuItem value="Pruebas">Pruebas</MenuItem>
+              <MenuItem value="Producción">Producción</MenuItem>
+            </TextField>
+            <TextField label="Responsable del Despliegue" fullWidth size="small" value={responsable} onChange={(e) => setResponsable(e.target.value)} />
+            <TextField label="Descripción de Cambios" fullWidth multiline rows={3} value={cambios} onChange={(e) => setCambios(e.target.value)} />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDialog(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={guardarVersion}>Guardar Versión</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

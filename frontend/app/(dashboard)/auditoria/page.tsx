@@ -1,6 +1,8 @@
 'use client';
 
+import { useState, useEffect, useCallback } from 'react';
 import DataTable, { ColumnDef } from '@/components/common/DataTable';
+import apiClient from '@/lib/api/client';
 
 interface Auditoria {
   id: string;
@@ -12,16 +14,22 @@ interface Auditoria {
   ip: string;
 }
 
-const eventos: Auditoria[] = [
-  { id: 'A-001', usuario: 'admin@poderjudicial.gob.pe', modulo: 'Incidencias', accion: 'Creación', entidad: 'INC-006', fecha: '2024/01/15 10:30', ip: '10.0.0.12' },
-  { id: 'A-002', usuario: 'ana.gomez', modulo: 'Requerimientos', accion: 'Actualización', entidad: 'REQ-001', fecha: '2024/01/15 09:45', ip: '10.0.0.18' },
-  { id: 'A-003', usuario: 'carlos.ruiz', modulo: 'Versiones', accion: 'Despliegue', entidad: 'V-004', fecha: '2024/01/14 18:20', ip: '10.0.0.5' },
-  { id: 'A-004', usuario: 'sistema', modulo: 'Seguridad', accion: 'Acceso', entidad: 'Sesión', fecha: '2024/01/14 08:00', ip: '10.0.0.3' },
-  { id: 'A-005', usuario: 'maria.lopez', modulo: 'Casos de Prueba', accion: 'Ejecución', entidad: 'CP-005', fecha: '2024/01/14 12:10', ip: '10.0.0.22' },
-  { id: 'A-006', usuario: 'juan.perez', modulo: 'Calidad ISO', accion: 'Evaluación', entidad: 'Versión 1.2.3', fecha: '2024/01/13 16:00', ip: '10.0.0.9' },
-];
-
 export default function AuditoriaPage() {
+  const [data, setData] = useState<Auditoria[]>([]);
+
+  const cargarAuditoria = useCallback(async () => {
+    try {
+      const resp = await apiClient.get('/auditoria');
+      setData(resp.data.items || []);
+    } catch {
+      // fallback
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarAuditoria();
+  }, [cargarAuditoria]);
+
   const columns: ColumnDef<Auditoria>[] = [
     { key: 'id', label: 'ID' },
     { key: 'usuario', label: 'Usuario' },
@@ -34,15 +42,15 @@ export default function AuditoriaPage() {
 
   return (
     <DataTable
-      title="Auditoría y Trazabilidad"
-      subtitle="Registro de todos los eventos del sistema con hash de integridad"
+      title="Auditoría y Trazabilidad Automatizada"
+      subtitle="Registro persistente e inmutable de todas las acciones de usuarios y eventos del sistema SGC"
       columns={columns}
-      data={eventos}
-      searchPlaceholder="Buscar evento..."
-      newLabel="Exportar Logs"
+      data={data}
+      searchPlaceholder="Buscar evento de auditoría..."
+      newLabel=""
       filters={[
-        { key: 'modulo', label: 'Módulo', values: ['Incidencias', 'Requerimientos', 'Versiones', 'Casos de Prueba', 'Calidad ISO', 'Seguridad'] },
-        { key: 'accion', label: 'Acción', values: ['Creación', 'Actualización', 'Eliminación', 'Despliegue', 'Acceso', 'Ejecución'] },
+        { key: 'modulo', label: 'Módulo', values: ['Incidencias', 'Requerimientos', 'Versiones', 'Casos de Prueba', 'Calidad ISO', 'Sistema SGC'] },
+        { key: 'accion', label: 'Acción', values: ['Creación', 'Actualización', 'Despliegue', 'Acceso', 'Evaluación', 'Inicialización'] },
       ]}
     />
   );

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.interfaces.api.v1.endpoints import auth, incidencias, dashboard, trabajos, documentos, configuracion, usuarios, reportes, chatbot
+from src.interfaces.api.v1.endpoints import auth, incidencias, dashboard, trabajos, documentos, configuracion, usuarios, reportes, chatbot, gestion
 
 router = APIRouter()
 
@@ -12,3 +12,4 @@ router.include_router(configuracion.router, prefix="/configuracion", tags=["Conf
 router.include_router(usuarios.router, prefix="/usuarios", tags=["Usuarios"])
 router.include_router(reportes.router, prefix="/reportes", tags=["Reportes"])
 router.include_router(chatbot.router, prefix="/chatbot", tags=["Chatbot Inteligente & RAG"])
+router.include_router(gestion.router, tags=["Gestión y Trazabilidad Central"])
