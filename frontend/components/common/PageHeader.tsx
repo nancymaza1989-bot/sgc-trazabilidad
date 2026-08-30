@@ -1,7 +1,8 @@
 'use client';
 
-import { Box, Breadcrumbs, Link as MuiLink, Stack, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Breadcrumbs, Link as MuiLink, Stack, Typography, Button, useMediaQuery, useTheme } from '@mui/material';
 import Link from 'next/link';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { LOGO_BALANZA, PJ_COLORS } from '@/lib/theme';
 
 export function PageBreadcrumb({ items }: { items: { label: string; href?: string }[] }) {
@@ -66,6 +67,16 @@ export default function PageHeader({ titulo, descripcion, breadcrumb, actions }:
           )}
         </Box>
         {actions && <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>{actions}</Box>}
+        <Button
+          variant="outlined"
+          size="small"
+          component={Link}
+          href="/flujograma"
+          startIcon={<AccountTreeIcon />}
+          sx={{ borderColor: PJ_COLORS.primary, color: PJ_COLORS.primary, textTransform: 'none', fontWeight: 600, height: 36 }}
+        >
+          Flujograma Proceso
+        </Button>
       </Stack>
     </Box>
   );

@@ -12,6 +12,7 @@ export interface MenuSeccion {
 
 const MODULOS: MenuItem[] = [
   { titulo: 'Dashboard', ruta: '/dashboard', icono: '📊', descripcion: 'Panel de control de la calidad (Coordinador)' },
+  { titulo: 'Flujograma SGC', ruta: '/flujograma', icono: '🗺️', descripcion: 'Mapa interactivo de procesos macro y guía de pantallas' },
   { titulo: 'Trabajos', ruta: '/trabajos', icono: '🎫', descripcion: 'Gestión de tickets, pases y requerimientos (Coordinador)' },
   { titulo: 'Incidencias', ruta: '/incidencias', icono: '📋', descripcion: 'Evaluaciones asignadas al Analista: registrar casos de prueba, incidencias/hallazgos y evidencias' },
   { titulo: 'Casos de Prueba', ruta: '/casos-prueba', icono: '🧪', descripcion: 'Casos de prueba como evidencias de la evaluación' },
@@ -30,7 +31,7 @@ export const MENU_SECCIONES: MenuSeccion[] = [
   {
     titulo: 'Principal',
     items: MODULOS.filter((m) =>
-      ['dashboard', 'trabajos'].includes(m.ruta.replace('/', '')),
+      ['dashboard', 'flujograma', 'trabajos'].includes(m.ruta.replace('/', '')),
     ),
   },
   {
