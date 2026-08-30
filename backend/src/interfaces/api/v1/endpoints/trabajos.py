@@ -170,8 +170,20 @@ async def _mapa_asignacion_por_trabajo(db: AsyncSession, trabajo_ids) -> dict:
 
 
 async def _buscar_evaluacion(db: AsyncSession, trabajo_id: UUID, evaluacion_id: UUID) -> EvaluacionModel:
-    t = await _buscar_trabajo(db, trabajo_id)
-    e = next((x for x in t.evaluaciones if x.id == str(evaluacion_id)), None)
+    await _buscar_trabajo(db, trabajo_id)
+    stmt = (
+        select(EvaluacionModel)
+        .where(EvaluacionModel.trabajo_id == str(trabajo_id), EvaluacionModel.id == str(evaluacion_id))
+        .options(
+            selectinload(EvaluacionModel.trabajo),
+            selectinload(EvaluacionModel.incidencias).selectinload(IncidenciaModel.evidencias),
+            selectinload(EvaluacionModel.casos_prueba)
+            .selectinload(CasoPruebaModel.casos)
+            .selectinload(CasoPruebaItemModel.evidencias),
+            selectinload(EvaluacionModel.casos_prueba).selectinload(CasoPruebaModel.evidencias),
+        )
+    )
+    e = (await db.execute(stmt)).scalar_one_or_none()
     if not e:
         raise HTTPException(status_code=404, detail="Evaluación no encontrada")
     return e
