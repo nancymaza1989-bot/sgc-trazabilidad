@@ -177,8 +177,7 @@ export default function IncidenciasPage() {
       if (evidenciaArchivo) {
         await apiClient.post(
           `/trabajos/${detalle.trabajo_id}/evaluaciones/${detalle.id}/incidencias/${incidencia.id}/evidencias`,
-          null,
-          { params: { archivo: evidenciaArchivo, descripcion: evidenciaDescripcion.trim() } },
+          { archivo: evidenciaArchivo, descripcion: evidenciaDescripcion.trim() },
         );
       }
 

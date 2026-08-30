@@ -225,8 +225,7 @@ function CasosPruebaContent() {
           if (!ev.archivo) continue;
           await apiClient.post(
             `/trabajos/${detalle.trabajo_id}/evaluaciones/${detalle.id}/casos-prueba/${caso.id}/casos/${casoItem.id}/evidencias`,
-            null,
-            { params: { archivo: ev.archivo, descripcion: ev.descripcion.trim() } },
+            { archivo: ev.archivo, descripcion: ev.descripcion.trim() },
           );
         }
       }

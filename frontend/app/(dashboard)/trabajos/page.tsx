@@ -59,6 +59,12 @@ const FORM_VACIO: FormTrabajo = {
   documentacion: '',
 };
 
+const EXTENSIONES_PERMITIDAS = [
+  'pdf', 'xls', 'xlsx', 'csv', 'doc', 'docx', 'txt', 'rtf',
+  'js', 'ts', 'py', 'sql', 'sh', 'ps1', 'java', 'c', 'cpp', 'cs', 'json', 'xml',
+];
+const TAMANO_MAXIMO_MB = 10;
+
 const inputRefStyle = { display: 'none' };
 
 function IconoAdjunto(mime: string) {
@@ -154,6 +160,15 @@ export default function TrabajosPage() {
     if (!files) return;
     const nuevos: AdjuntoUI[] = [];
     for (const f of Array.from(files)) {
+      const ext = (f.name.split('.').pop() || '').toLowerCase();
+      if (!EXTENSIONES_PERMITIDAS.includes(ext)) {
+        setErrorTrabajo(`Tipo de archivo no permitido: ${f.name}. Formatos admitidos: PDF, Excel, Word, CSV, texto y scripts (js, py, sql, sh, ps1, java...).`);
+        continue;
+      }
+      if (f.size / (1024 * 1024) > TAMANO_MAXIMO_MB) {
+        setErrorTrabajo(`El archivo "${f.name}" supera el límite de ${TAMANO_MAXIMO_MB} MB.`);
+        continue;
+      }
       const dataUri = await leerArchivoComoBase64(f);
       nuevos.push({ file: f, name: f.name, mime: f.type, dataUri, size: f.size });
     }
@@ -179,9 +194,10 @@ export default function TrabajosPage() {
 
       // Subir adjuntos después de crear el trabajo
       for (const adj of adjuntosTemp) {
-        const base = adj.dataUri.substring(adj.dataUri.indexOf(',') + 1);
-        await apiClient.post(`/trabajos/${trabajoId}/adjuntos`, null, {
-          params: { nombre: adj.name, archivo: adj.dataUri, tipo_mime: adj.mime },
+        await apiClient.post(`/trabajos/${trabajoId}/adjuntos`, {
+          nombre: adj.name,
+          archivo: adj.dataUri,
+          tipo_mime: adj.mime,
         });
       }
 
@@ -508,6 +524,7 @@ export default function TrabajosPage() {
                 ref={fileInputRef}
                 type="file"
                 multiple
+                accept=".pdf,.xls,.xlsx,.csv,.doc,.docx,.txt,.rtf,.js,.ts,.py,.sql,.sh,.ps1,.java,.c,.cpp,.cs,.json,.xml,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/csv"
                 style={inputRefStyle}
                 onChange={(e) => { void agregarArchivos(e.target.files); e.target.value = ''; }}
               />

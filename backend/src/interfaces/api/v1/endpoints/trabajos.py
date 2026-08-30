@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from typing import Optional
 from datetime import date, datetime
 from uuid import UUID
@@ -35,6 +36,21 @@ from src.interfaces.api.v1.endpoints.serializers import (
 )
 
 router = APIRouter()
+
+
+# ------------------------------------------------------------------
+# Modelos Pydantic de entrada
+# ------------------------------------------------------------------
+class AdjuntoRequest(BaseModel):
+    nombre: Optional[str] = None
+    archivo: str
+    tipo_mime: Optional[str] = None
+    descripcion: Optional[str] = None
+
+
+class EvidenciaRequest(BaseModel):
+    archivo: str
+    descripcion: Optional[str] = None
 
 
 # ------------------------------------------------------------------
@@ -313,20 +329,17 @@ async def entregar_evaluacion(
 @router.post("/{trabajo_id}/adjuntos", status_code=status.HTTP_201_CREATED)
 async def agregar_adjunto(
     trabajo_id: UUID,
-    nombre: str,
-    archivo: str,
-    tipo_mime: Optional[str] = None,
-    descripcion: str = "",
+    payload: AdjuntoRequest,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     t = await _buscar_trabajo(db, trabajo_id)
     adj = AdjuntoTrabajoModel(
         trabajo_id=t.id,
-        nombre=(nombre or "").strip() or "documento",
-        archivo=archivo,
-        tipo_mime=tipo_mime,
-        descripcion=descripcion or None,
+        nombre=(payload.nombre or "").strip() or "documento",
+        archivo=payload.archivo,
+        tipo_mime=payload.tipo_mime,
+        descripcion=payload.descripcion or None,
         creado_por=current_user.get("id"),
     )
     db.add(adj)
@@ -502,8 +515,7 @@ async def agregar_evidencia_caso_item(
     evaluacion_id: UUID,
     caso_id: UUID,
     caso_item_id: UUID,
-    archivo: str,
-    descripcion: str = "",
+    payload: EvidenciaRequest,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -515,7 +527,7 @@ async def agregar_evidencia_caso_item(
     if not item:
         raise HTTPException(status_code=404, detail="Caso de prueba (ítem) no encontrado")
     correlativo = str(len(item.evidencias) + 1)
-    ev = EvidenciaCasoItemModel(caso_item_id=item.id, correlativo=correlativo, archivo=archivo, descripcion=descripcion)
+    ev = EvidenciaCasoItemModel(caso_item_id=item.id, correlativo=correlativo, archivo=payload.archivo, descripcion=payload.descripcion)
     db.add(ev)
     await db.commit()
     return evidencia_to_dict(ev)
@@ -527,8 +539,7 @@ async def agregar_evidencia_caso(
     trabajo_id: UUID,
     evaluacion_id: UUID,
     caso_id: UUID,
-    archivo: str,
-    descripcion: str = "",
+    payload: EvidenciaRequest,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -538,7 +549,7 @@ async def agregar_evidencia_caso(
     if not caso:
         raise HTTPException(status_code=404, detail="Caso de prueba no encontrado")
     correlativo = str(len(caso.evidencias) + 1)
-    ev = EvidenciaCasoModel(caso_id=caso.id, correlativo=correlativo, archivo=archivo, descripcion=descripcion)
+    ev = EvidenciaCasoModel(caso_id=caso.id, correlativo=correlativo, archivo=payload.archivo, descripcion=payload.descripcion)
     db.add(ev)
     await db.commit()
     return evidencia_to_dict(ev)
@@ -603,8 +614,7 @@ async def agregar_evidencia(
     trabajo_id: UUID,
     evaluacion_id: UUID,
     incidencia_id: UUID,
-    archivo: str,
-    descripcion: str = "",
+    payload: EvidenciaRequest,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -613,7 +623,7 @@ async def agregar_evidencia(
     if not inc:
         raise HTTPException(status_code=404, detail="Incidencia no encontrada")
     correlativo = str(len(inc.evidencias) + 1)
-    ev = EvidenciaModel(incidencia_id=inc.id, correlativo=correlativo, archivo=archivo, descripcion=descripcion)
+    ev = EvidenciaModel(incidencia_id=inc.id, correlativo=correlativo, archivo=payload.archivo, descripcion=payload.descripcion)
     db.add(ev)
     await db.commit()
     return evidencia_to_dict(ev)
