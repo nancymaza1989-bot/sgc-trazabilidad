@@ -22,17 +22,14 @@ function guardarToken(token: string) {
 }
 
 apiClient.interceptors.request.use(async (config) => {
-  let token = obtenerToken();
-  if (!token && typeof window !== 'undefined') {
+  let token: string | null = null;
+  if (typeof window !== 'undefined') {
     try {
       const session = await getSession();
-      const tokenSesion = (session as any)?.user?.access_token;
-      if (tokenSesion) {
-        token = tokenSesion;
-        guardarToken(tokenSesion);
-      }
+      token = (session as any)?.user?.access_token || null;
+      if (token) guardarToken(token);
     } catch {
-      // Sin sesión recuperable; se continúa sin token.
+      token = obtenerToken();
     }
   }
   if (token) {
