@@ -15,6 +15,7 @@ class FaqModel(Base):
     categoria = Column(String(100), nullable=False, default="General")
     activo = Column(Boolean, nullable=False, default=True)
     orden = Column(Integer, nullable=False, default=0)
+    url = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -28,5 +29,6 @@ class DocumentoNormativoModel(Base):
     contenido = Column(Text, nullable=False)  # Texto completo para indexación y RAG
     categoria = Column(String(100), nullable=False, default="Normativa SGC")
     activo = Column(Boolean, nullable=False, default=True)
+    url = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

@@ -174,14 +174,22 @@ export default function ChatbotFlotante() {
                   {m.fuentes && m.fuentes.length > 0 && (
                     <Box sx={{ mt: 1, pt: 1, borderTop: `1px dashed ${PJ_COLORS.divider}` }}>
                       <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 600 }}>
-                        Fuente:
+                        Fuentes y Enlaces Oficiales:
                       </Typography>
-                      {m.fuentes.map((f, fi) => (
+                      {m.fuentes.map((f: any, fi) => (
                         <Chip
                           key={fi}
                           label={`${f.tipo}: ${f.titulo}`}
                           size="small"
-                          sx={{ mt: 0.5, fontSize: 11, height: 20, bgcolor: '#e2e8f0' }}
+                          component={f.url ? 'a' : 'div'}
+                          {...(f.url ? { href: f.url, target: '_blank', rel: 'noopener noreferrer' } : {})}
+                          clickable={Boolean(f.url)}
+                          sx={{
+                            mt: 0.5, mr: 0.5, fontSize: 11, height: 24,
+                            bgcolor: f.url ? '#e0f2fe' : '#e2e8f0',
+                            color: f.url ? '#0369a1' : 'inherit',
+                            '&:hover': { bgcolor: f.url ? '#bae6fd' : '#cbd5e1' }
+                          }}
                         />
                       ))}
                     </Box>
