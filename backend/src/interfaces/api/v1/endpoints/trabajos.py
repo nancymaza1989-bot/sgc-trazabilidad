@@ -6,6 +6,7 @@ from uuid import UUID
 import json
 
 from sqlalchemy import select, insert
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.constants import EstadoEvaluacion, TipoAtencion, Prioridad, TipoError, PrioridadIncidencia
@@ -348,7 +349,24 @@ async def listar_evaluaciones(trabajo_id: UUID, current_user = Depends(get_curre
 
 @router.get("/{trabajo_id}/evaluaciones/{evaluacion_id}")
 async def obtener_evaluacion(trabajo_id: UUID, evaluacion_id: UUID, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    e = await _buscar_evaluacion(db, trabajo_id, evaluacion_id)
+    await _buscar_trabajo(db, trabajo_id)
+    # Eager-load completo del grafo de la evaluación para evitar lazy-load síncrono
+    # (MissingGreenlet) al serializar trabajo/incidencias/casos_prueba en modo async.
+    stmt = (
+        select(EvaluacionModel)
+        .where(EvaluacionModel.id == str(evaluacion_id), EvaluacionModel.trabajo_id == str(trabajo_id))
+        .options(
+            selectinload(EvaluacionModel.trabajo),
+            selectinload(EvaluacionModel.incidencias).selectinload(IncidenciaModel.evidencias),
+            selectinload(EvaluacionModel.casos_prueba)
+            .selectinload(CasoPruebaModel.casos)
+            .selectinload(CasoPruebaItemModel.evidencias),
+            selectinload(EvaluacionModel.casos_prueba).selectinload(CasoPruebaModel.evidencias),
+        )
+    )
+    e = (await db.execute(stmt)).scalar_one_or_none()
+    if not e:
+        raise HTTPException(status_code=404, detail="Evaluación no encontrada")
     data = evaluacion_to_dict(e)
     data["incidencias"] = [incidencia_to_dict(i) for i in e.incidencias]
     data["casos_prueba"] = [caso_prueba_to_dict(c) for c in e.casos_prueba]
