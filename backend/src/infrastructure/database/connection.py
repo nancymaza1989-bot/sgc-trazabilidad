@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+from sqlalchemy import text
 from src.core.config import DATABASE_URL
 
 if "sqlite" in DATABASE_URL:
@@ -47,10 +48,39 @@ async def _sembrar_usuarios():
         await session.commit()
 
 
+async def _aplicar_migraciones():
+    """Alteras DDL idempotentes para tablas ya existentes.
+
+    ``Base.metadata.create_all`` solo crea tablas NUEVAS; no añade columnas a las
+    ya creadas en producción. Aquí aplicamos ``ALTER TABLE ... ADD COLUMN IF NOT
+    EXISTS`` (postgres) de forma re-ejecutable para incorporar campos nuevos
+    (RA-105 avanzado) sin necesidad de una migración completa de Alembic.
+    """
+    if "sqlite" in DATABASE_URL:
+        return
+    alteraciones = [
+        # Criticidad/severidad por caso de prueba (ítem dentro del RA-105)
+        "ALTER TABLE casos_prueba_items ADD COLUMN IF NOT EXISTS severidad VARCHAR(50) NOT NULL DEFAULT 'Media'",
+        # Campos adicionales de la plantilla RA-105 (encabezado/conclusión)
+        "ALTER TABLE casos_prueba ADD COLUMN IF NOT EXISTS numero_requerimiento VARCHAR(100)",
+        "ALTER TABLE casos_prueba ADD COLUMN IF NOT EXISTS ambiente VARCHAR(100)",
+        "ALTER TABLE casos_prueba ADD COLUMN IF NOT EXISTS precondiciones TEXT",
+        "ALTER TABLE casos_prueba ADD COLUMN IF NOT EXISTS datos_prueba TEXT",
+        "ALTER TABLE casos_prueba ADD COLUMN IF NOT EXISTS resultado_esperado TEXT",
+    ]
+    async with engine.begin() as conn:
+        for ddl in alteraciones:
+            try:
+                await conn.execute(text(ddl))
+            except Exception:  # No bloquear el arranque si una columna ya existe o la tabla no existe
+                pass
+
+
 async def init_db():
     async with engine.begin() as conn:
         # Crea cualquier tabla nueva (incluida la tabla puente asignacion_trabajos)
         # si no existe todavía. No se modifica "trabajos" para evitar locks en prod.
         await conn.run_sync(Base.metadata.create_all)
+    await _aplicar_migraciones()
     await _sembrar_usuarios()
 

@@ -52,6 +52,7 @@ def caso_item_to_dict(x) -> dict:
         "id": x.id,
         "numero": x.numero,
         "descripcion": x.descripcion,
+        "severidad": x.severidad,
         "evidencias": [evidencia_to_dict(e) for e in x.evidencias],
     }
 
@@ -70,6 +71,11 @@ def caso_prueba_to_dict(c) -> dict:
         "fecha_prueba": _fecha_iso(c.fecha_prueba),
         "flujo_componente": campo,
         "campo_componente": campo,
+        "numero_requerimiento": c.numero_requerimiento,
+        "ambiente": c.ambiente,
+        "precondiciones": c.precondiciones,
+        "datos_prueba": c.datos_prueba,
+        "resultado_esperado": c.resultado_esperado,
         "resultado": resultado,
         "resultado_prueba": resultado,
         "observaciones": c.observaciones,

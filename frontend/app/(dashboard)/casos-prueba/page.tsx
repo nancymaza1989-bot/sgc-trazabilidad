@@ -18,7 +18,7 @@ import { descargarPDF } from '@/lib/api/pdf';
 import { leerArchivoComoBase64, extraerError } from '@/lib/api/archivos';
 import PageHeader from '@/components/common/PageHeader';
 import {
-  TIPOS_PASE, RESULTADOS_PRUEBA, type Trabajo, type Evaluacion,
+  TIPOS_PASE, RESULTADOS_PRUEBA, SEVERIDADES_CASO, type Trabajo, type Evaluacion,
   type EvaluacionDetalle, type CasoPrueba, type CasoPruebaItem,
 } from '@/lib/api/tipos';
 
@@ -29,6 +29,7 @@ interface EvidenciaTemporal {
 
 interface CasoDinamico {
   descripcion: string;
+  severidad: string;
   evidencias: EvidenciaTemporal[];
 }
 
@@ -36,9 +37,14 @@ interface FormRA105 {
   numero_ticket: string;
   numero_caso: string;
   numero_acta_pase: string;
+  numero_requerimiento: string;
+  ambiente: string;
   tipo_pase: string;
   fecha_prueba: string;
   campo_componente: string;
+  precondiciones: string;
+  datos_prueba: string;
+  resultado_esperado: string;
   resultado_prueba: string;
   observaciones: string;
   firma_analista: string;
@@ -68,9 +74,9 @@ function CasosPruebaContent() {
   const [errorDetalle, setErrorDetalle] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormRA105>({
-    numero_ticket: '', numero_caso: '1', numero_acta_pase: '', tipo_pase: 'Puntual',
-    fecha_prueba: hoyISO(), campo_componente: '', resultado_prueba: 'Pendiente',
-    observaciones: '', firma_analista: '', firma_supervisor: '',
+    numero_ticket: '', numero_caso: '1', numero_acta_pase: '', numero_requerimiento: '', ambiente: '',
+    tipo_pase: 'Puntual', fecha_prueba: hoyISO(), campo_componente: '', precondiciones: '', datos_prueba: '',
+    resultado_esperado: '', resultado_prueba: 'Pendiente', observaciones: '', firma_analista: '', firma_supervisor: '',
   });
   const [casosDinamicos, setCasosDinamicos] = useState<CasoDinamico[]>([]);
   const [guardando, setGuardando] = useState(false);
@@ -105,9 +111,14 @@ function CasosPruebaContent() {
         numero_ticket: data.numero_ticket,
         numero_caso: String(data.casos_prueba.length + 1),
         numero_acta_pase: '',
+        numero_requerimiento: '',
+        ambiente: '',
         tipo_pase: tipoPaseInicial(data.tipo_atencion),
         fecha_prueba: hoyISO(),
         campo_componente: '',
+        precondiciones: '',
+        datos_prueba: '',
+        resultado_esperado: '',
         resultado_prueba: 'Pendiente',
         observaciones: '',
         firma_analista: '',
@@ -148,7 +159,7 @@ function CasosPruebaContent() {
   };
 
   const agregarCasoDinamico = () => {
-    setCasosDinamicos((prev) => [...prev, { descripcion: '', evidencias: [] }]);
+    setCasosDinamicos((prev) => [...prev, { descripcion: '', severidad: 'Medio', evidencias: [] }]);
   };
 
   const removerCasoDinamico = (indice: number) => {
@@ -157,6 +168,10 @@ function CasosPruebaContent() {
 
   const actualizarDescripcionCaso = (indice: number, valor: string) => {
     setCasosDinamicos((prev) => prev.map((c, i) => (i === indice ? { ...c, descripcion: valor } : c)));
+  };
+
+  const actualizarSeveridadCaso = (indice: number, valor: string) => {
+    setCasosDinamicos((prev) => prev.map((c, i) => (i === indice ? { ...c, severidad: valor } : c)));
   };
 
   const agregarEvidenciaCaso = (indice: number) => {
@@ -203,6 +218,11 @@ function CasosPruebaContent() {
         resultado_prueba: form.resultado_prueba,
         observaciones: form.observaciones.trim(),
       };
+      if (form.numero_requerimiento.trim()) params.numero_requerimiento = form.numero_requerimiento.trim();
+      if (form.ambiente.trim()) params.ambiente = form.ambiente.trim();
+      if (form.precondiciones.trim()) params.precondiciones = form.precondiciones.trim();
+      if (form.datos_prueba.trim()) params.datos_prueba = form.datos_prueba.trim();
+      if (form.resultado_esperado.trim()) params.resultado_esperado = form.resultado_esperado.trim();
       if (form.numero_acta_pase.trim()) params.numero_acta_pase = form.numero_acta_pase.trim();
       if (form.fecha_prueba) params.fecha_prueba = form.fecha_prueba;
       if (form.firma_analista) params.firma_analista = form.firma_analista;
@@ -217,7 +237,7 @@ function CasosPruebaContent() {
         if (!item.descripcion.trim()) continue;
         const { data: casoItem } = await apiClient.post<CasoPruebaItem>(
           `/trabajos/${detalle.trabajo_id}/evaluaciones/${detalle.id}/casos-prueba/${caso.id}/casos`,
-          { numero: '', descripcion: item.descripcion.trim() },
+          { numero: '', descripcion: item.descripcion.trim(), severidad: item.severidad || 'Medio' },
         );
         for (const ev of item.evidencias) {
           if (!ev.archivo) continue;
@@ -324,6 +344,12 @@ function CasosPruebaContent() {
                 <TextField fullWidth label="Nº de Acta de Pase" value={form.numero_acta_pase} onChange={(e) => setForm({ ...form, numero_acta_pase: e.target.value })} />
               </Grid>
               <Grid item xs={6} md={3}>
+                <TextField fullWidth label="Nº de Requerimiento" value={form.numero_requerimiento} onChange={(e) => setForm({ ...form, numero_requerimiento: e.target.value })} />
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <TextField fullWidth label="Ambiente" value={form.ambiente} onChange={(e) => setForm({ ...form, ambiente: e.target.value })} placeholder="QA / Producción / SIT" />
+              </Grid>
+              <Grid item xs={6} md={3}>
                 <TextField fullWidth disabled label="Nombre del Analista (auto)" value={detalle.analista || '—'} />
               </Grid>
               <Grid item xs={6} md={3}>
@@ -336,6 +362,22 @@ function CasosPruebaContent() {
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField fullWidth label="Campo / Componente / Módulo *" value={form.campo_componente} onChange={(e) => setForm({ ...form, campo_componente: e.target.value })} />
+              </Grid>
+            </Grid>
+          </Paper>
+
+          {/* Detalle de la prueba */}
+          <Paper sx={{ p: 2, borderRadius: 2 }}>
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Detalle de la prueba</Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField fullWidth multiline rows={2} label="Precondiciones" value={form.precondiciones} onChange={(e) => setForm({ ...form, precondiciones: e.target.value })} placeholder="Condiciones previas para ejecutar el caso" />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth multiline rows={2} label="Datos de prueba" value={form.datos_prueba} onChange={(e) => setForm({ ...form, datos_prueba: e.target.value })} placeholder="Datos/consultas a emplear" />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth multiline rows={2} label="Resultado esperado" value={form.resultado_esperado} onChange={(e) => setForm({ ...form, resultado_esperado: e.target.value })} />
               </Grid>
             </Grid>
           </Paper>
@@ -361,13 +403,25 @@ function CasosPruebaContent() {
                     <Button size="small" color="error" onClick={() => removerCasoDinamico(i)}><DeleteIcon fontSize="small" /></Button>
                   </Tooltip>
                 </Box>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Descripción del caso *"
-                  value={caso.descripcion}
-                  onChange={(e) => actualizarDescripcionCaso(i, e.target.value)}
-                />
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Descripción del caso *"
+                    value={caso.descripcion}
+                    onChange={(e) => actualizarDescripcionCaso(i, e.target.value)}
+                  />
+                  <TextField
+                    select
+                    size="small"
+                    label="Severidad"
+                    value={caso.severidad}
+                    onChange={(e) => actualizarSeveridadCaso(i, e.target.value)}
+                    sx={{ minWidth: 130 }}
+                  >
+                    {SEVERIDADES_CASO.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                  </TextField>
+                </Box>
                 <Divider sx={{ my: 1 }} />
                 <Typography variant="caption" color="text.secondary">Evidencias / vestigios del caso</Typography>
                 {caso.evidencias.map((ev, j) => (

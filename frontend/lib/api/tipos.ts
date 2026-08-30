@@ -84,6 +84,7 @@ export interface CasoPruebaItem {
   id: string;
   numero: string;
   descripcion: string | null;
+  severidad: string | null;
   evidencias: Evidencia[];
 }
 
@@ -98,6 +99,11 @@ export interface CasoPrueba {
   fecha_prueba: string | null;
   flujo_componente: string | null;
   campo_componente: string | null;
+  numero_requerimiento: string | null;
+  ambiente: string | null;
+  precondiciones: string | null;
+  datos_prueba: string | null;
+  resultado_esperado: string | null;
   resultado: string;
   resultado_prueba: string | null;
   observaciones: string | null;
@@ -126,6 +132,7 @@ export const PRIORIDADES_INCIDENCIA = ['Bajo', 'Medio', 'Alto'] as const;
 export const MOTORES_BD = ['PostgreSQL', 'MySQL', 'SQL Server', 'Oracle', 'Otros'] as const;
 export const TIPOS_PASE = ['Versión', 'Puntual', 'Pruebas Unitarias'] as const;
 export const RESULTADOS_PRUEBA = ['Aprobado', 'Rechazado', 'Observado', 'Pendiente'] as const;
+export const SEVERIDADES_CASO = ['Crítico', 'Alto', 'Medio', 'Bajo'] as const;
 export const ESTADOS_TRABAJO = [
   'Pendiente de asignación', 'Proceso de evaluación', 'Pendiente de entrega',
   'Entregado por el Analista', 'En validación', 'Cerrado',

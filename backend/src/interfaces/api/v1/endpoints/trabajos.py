@@ -60,6 +60,11 @@ class CasoPruebaRequest(BaseModel):
     tipo_pase: Optional[str] = None
     campo_componente: Optional[str] = None
     flujo_componente: Optional[str] = None
+    numero_requerimiento: Optional[str] = None
+    ambiente: Optional[str] = None
+    precondiciones: Optional[str] = None
+    datos_prueba: Optional[str] = None
+    resultado_esperado: Optional[str] = None
     resultado_prueba: Optional[str] = None
     resultado: Optional[str] = None
     fecha_prueba: Optional[str] = None
@@ -133,6 +138,7 @@ class AsignacionRequest(BaseModel):
 class CasoPruebaItemRequest(BaseModel):
     numero: Optional[str] = None
     descripcion: str = ""
+    severidad: Optional[str] = "Media"
 
 
 # ------------------------------------------------------------------
@@ -555,6 +561,11 @@ async def agregar_caso_prueba(
         fecha_prueba=fecha_prueba_dt,
         flujo_componente=campo,
         campo_componente=campo or None,
+        numero_requerimiento=payload.numero_requerimiento,
+        ambiente=payload.ambiente,
+        precondiciones=payload.precondiciones,
+        datos_prueba=payload.datos_prueba,
+        resultado_esperado=payload.resultado_esperado,
         resultado=resultado_final,
         resultado_prueba=resultado_final,
         observaciones=payload.observaciones,
@@ -581,7 +592,12 @@ async def agregar_caso_prueba_item(
     if not caso:
         raise HTTPException(status_code=404, detail="Caso de prueba no encontrado")
     numero_valor = payload.numero or str(len(caso.casos) + 1)
-    item = CasoPruebaItemModel(caso_prueba_id=caso.id, numero=numero_valor, descripcion=payload.descripcion)
+    item = CasoPruebaItemModel(
+        caso_prueba_id=caso.id,
+        numero=numero_valor,
+        descripcion=payload.descripcion,
+        severidad=(payload.severidad or "Media").strip() or "Media",
+    )
     db.add(item)
     await db.commit()
     creado = (await db.execute(select(CasoPruebaItemModel).where(CasoPruebaItemModel.id == item.id))).scalar_one()

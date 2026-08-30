@@ -259,7 +259,9 @@ def _build_pdf_caso_prueba(datos: dict) -> bytes:
     filas = [
         ("Nº de Caso", datos.get("numero_caso")),
         ("Ticket", datos.get("numero_ticket")),
+        ("Nº de Requerimiento", datos.get("numero_requerimiento")),
         ("Nº de Acta de Pase", datos.get("numero_acta_pase")),
+        ("Ambiente", datos.get("ambiente")),
         ("Analista", datos.get("nombre_analista")),
         ("Tipo de Pase", datos.get("tipo_pase")),
         ("Fecha de Prueba", datos.get("fecha_prueba")),
@@ -286,8 +288,28 @@ def _build_pdf_caso_prueba(datos: dict) -> bytes:
         Paragraph("FORMATO DE CASO DE PRUEBA (RA-105)", STY_SECCION),
         tabla_datos,
         Spacer(1, 8),
-        Paragraph("CASOS DE PRUEBA", STY_SECCION),
     ]
+
+    if datos.get("precondiciones"):
+        elementos += [
+            Paragraph("PRECONDICIONES", STY_SECCION),
+            _p(datos.get("precondiciones"), STY_VALOR),
+            Spacer(1, 6),
+        ]
+    if datos.get("datos_prueba"):
+        elementos += [
+            Paragraph("DATOS DE PRUEBA", STY_SECCION),
+            _p(datos.get("datos_prueba"), STY_VALOR),
+            Spacer(1, 6),
+        ]
+    if datos.get("resultado_esperado"):
+        elementos += [
+            Paragraph("RESULTADO ESPERADO", STY_SECCION),
+            _p(datos.get("resultado_esperado"), STY_VALOR),
+            Spacer(1, 6),
+        ]
+
+    elementos.append(Paragraph("CASOS DE PRUEBA", STY_SECCION))
 
     casos = datos.get("casos") or []
     if casos:
@@ -305,14 +327,16 @@ def _build_pdf_caso_prueba(datos: dict) -> bytes:
 
         filas_casos = [[Paragraph("<b>Nº</b>", STY_CELDA_C),
                         Paragraph("<b>Descripción del caso</b>", STY_CELDA_C),
+                        Paragraph("<b>Severidad</b>", STY_CELDA_C),
                         Paragraph("<b>Evidencias</b>", STY_CELDA_C)]]
         filas_casos += [
             [Paragraph(str(c.get("numero", "")), STY_CELDA_C),
              _p(c.get("descripcion"), STY_CELDA),
+             Paragraph(escape(str(c.get("severidad") or "Media")), STY_CELDA_C),
              Paragraph(_texto_evidencias(c.get("evidencias") or []), STY_CELDA)]
             for c in casos
         ]
-        tabla_casos = Table(filas_casos, colWidths=[35, ANCHO - 195, 160], repeatRows=1)
+        tabla_casos = Table(filas_casos, colWidths=[32, ANCHO - 225, 65, 160], repeatRows=1)
         tabla_casos.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a3a6b")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
