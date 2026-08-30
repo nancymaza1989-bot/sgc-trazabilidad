@@ -20,6 +20,7 @@ import apiClient from '@/lib/api/client';
 import { descargarPDF } from '@/lib/api/pdf';
 import { leerArchivoComoBase64, extraerError } from '@/lib/api/archivos';
 import PageHeader from '@/components/common/PageHeader';
+import EvidenciaImagen from '@/components/EvidenciaImagen';
 import {
   TIPOS_ERROR, PRIORIDADES_INCIDENCIA, MOTORES_BD, ESTADO_COLOR,
   type Trabajo, type Evaluacion, type EvaluacionDetalle, type Incidencia,
@@ -474,25 +475,12 @@ export default function IncidenciasPage() {
                 />
               </Grid>
               <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>Evidencia (opcional)</Typography>
-                <Stack spacing={1}>
-                  <Box>
-                    <Button variant="outlined" component="label" startIcon={<UploadFileIcon />} size="small">
-                      Seleccionar archivo
-                      <input
-                        type="file"
-                        hidden
-                        onChange={(e) => {
-                          const archivo = e.target.files?.[0];
-                          setEvidenciaArchivo(archivo?.name || '');
-                        }}
-                      />
-                    </Button>
-                    {evidenciaArchivo && <Typography variant="caption" sx={{ ml: 1 }}>{evidenciaArchivo}</Typography>}
-                  </Box>
-                  <TextField size="small" fullWidth label="Descripción de la evidencia" value={evidenciaDescripcion} onChange={(e) => setEvidenciaDescripcion(e.target.value)} />
-                </Stack>
-              </Grid>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Evidencia (opcional)</Typography>
+                  <Stack spacing={1}>
+                    <EvidenciaImagen value={evidenciaArchivo} onChange={setEvidenciaArchivo} label="Pegar imagen (Ctrl+V) o subir archivo" />
+                    <TextField size="small" fullWidth label="Descripción de la evidencia" value={evidenciaDescripcion} onChange={(e) => setEvidenciaDescripcion(e.target.value)} />
+                  </Stack>
+                </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>Firma del analista (imagen)</Typography>
                 <Stack spacing={1}>

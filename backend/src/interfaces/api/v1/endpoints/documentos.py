@@ -163,6 +163,24 @@ def _flujo_firma(rotulo: str, firma: str) -> list:
     return flujo
 
 
+def _flujo_evidencia(ev, max_altura=200):
+    """Devuelve una lista de flowables para una evidencia: encabezado + descripción + imagen incrustada."""
+    numero = escape(str(ev.get("correlativo", "") or ""))
+    desc = escape(str(ev.get("descripcion", "") or ""))
+    archivo = ev.get("archivo") or ""
+    flujo = [Paragraph(f"<b>Evidencia {numero}</b>", STY_SECCION)]
+    if desc:
+        flujo.append(_p(desc, STY_VALOR))
+    img = _imagen_firma(archivo, max_altura=max_altura)
+    if img:
+        img.hAlign = "CENTER"
+        flujo.append(img)
+    else:
+        flujo.append(_p("(Imagen no disponible para esta evidencia.)", STY_VALOR))
+    flujo.append(Spacer(1, 10))
+    return flujo
+
+
 # ------------------------------------------------------------------
 # Formato de Incidencia
 # ------------------------------------------------------------------
@@ -217,23 +235,9 @@ def _build_pdf_incidencia(datos: dict) -> bytes:
     evidencias = datos.get("evidencias") or []
     elementos.append(Paragraph("EVIDENCIAS", STY_SECCION))
     if evidencias:
-        filas_ev = [[Paragraph("<b>Nº</b>", STY_CELDA_C), Paragraph("<b>Descripción</b>", STY_CELDA_C),
-                     Paragraph("<b>Archivo</b>", STY_CELDA_C)]]
-        filas_ev += [
-            [Paragraph(str(e.get("correlativo", "")), STY_CELDA_C),
-             _p(e.get("descripcion"), STY_CELDA),
-             _p(e.get("archivo"), STY_CELDA)]
-            for e in evidencias
-        ]
-        tabla_ev = Table(filas_ev, colWidths=[35, ANCHO - 195, 160], repeatRows=1)
-        tabla_ev.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a3a6b")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#999999")),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 5),
-        ]))
-        elementos.append(tabla_ev)
+        for ev in evidencias:
+            elementos += _flujo_evidencia(ev)
+        elementos.append(Spacer(1, 4))
     else:
         elementos.append(_p("Sin evidencias registradas.", STY_VALOR))
 
@@ -317,9 +321,8 @@ def _build_pdf_caso_prueba(datos: dict) -> bytes:
             lineas = []
             for ev in evs:
                 numero = escape(str(ev.get("correlativo", "") or ""))
-                archivo = escape(str(ev.get("archivo", "") or "")).replace("\n", " ")
                 desc = escape(str(ev.get("descripcion", "") or "")).replace("\n", " ")
-                texto = f"Evidencia #{numero}: {archivo}"
+                texto = f"Evidencia #{numero}"
                 if desc:
                     texto += f" - {desc}"
                 lineas.append(texto)
@@ -345,29 +348,24 @@ def _build_pdf_caso_prueba(datos: dict) -> bytes:
             ("LEFTPADDING", (0, 0), (-1, -1), 5),
         ]))
         elementos.append(tabla_casos)
+        for c in casos:
+            evs = c.get("evidencias") or []
+            if evs:
+                numero = escape(str(c.get("numero", "") or ""))
+                elementos.append(Spacer(1, 6))
+                elementos.append(Paragraph(f"Evidencias del caso Nº {numero}", STY_SECCION))
+                for ev in evs:
+                    elementos += _flujo_evidencia(ev)
+        elementos.append(Spacer(1, 4))
     else:
         elementos.append(_p("Sin casos de prueba registrados.", STY_VALOR))
 
     evidencias_doc = datos.get("evidencias") or []
     if evidencias_doc:
         elementos.append(Paragraph("EVIDENCIAS DEL DOCUMENTO", STY_SECCION))
-        filas_ev = [[Paragraph("<b>Nº</b>", STY_CELDA_C), Paragraph("<b>Descripción</b>", STY_CELDA_C),
-                     Paragraph("<b>Archivo</b>", STY_CELDA_C)]]
-        filas_ev += [
-            [Paragraph(str(e.get("correlativo", "")), STY_CELDA_C),
-             _p(e.get("descripcion"), STY_CELDA),
-             _p(e.get("archivo"), STY_CELDA)]
-            for e in evidencias_doc
-        ]
-        tabla_ev = Table(filas_ev, colWidths=[35, ANCHO - 195, 160], repeatRows=1)
-        tabla_ev.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a3a6b")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#999999")),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 5),
-        ]))
-        elementos.append(tabla_ev)
+        for ev in evidencias_doc:
+            elementos += _flujo_evidencia(ev)
+        elementos.append(Spacer(1, 4))
 
     elementos += [
         Spacer(1, 8),

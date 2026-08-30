@@ -17,6 +17,7 @@ import apiClient from '@/lib/api/client';
 import { descargarPDF } from '@/lib/api/pdf';
 import { leerArchivoComoBase64, extraerError } from '@/lib/api/archivos';
 import PageHeader from '@/components/common/PageHeader';
+import EvidenciaImagen from '@/components/EvidenciaImagen';
 import {
   TIPOS_PASE, RESULTADOS_PRUEBA, SEVERIDADES_CASO, type Trabajo, type Evaluacion,
   type EvaluacionDetalle, type CasoPrueba, type CasoPruebaItem,
@@ -426,16 +427,13 @@ function CasosPruebaContent() {
                 <Typography variant="caption" color="text.secondary">Evidencias / vestigios del caso</Typography>
                 {caso.evidencias.map((ev, j) => (
                   <Box key={j} sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 1 }}>
-                    <TextField
-                      size="small"
-                      label="Archivo"
+                    <EvidenciaImagen
                       value={ev.archivo}
-                      onChange={(e) => actualizarEvidenciaCaso(i, j, 'archivo', e.target.value)}
-                      sx={{ flex: 1 }}
+                      onChange={(v) => actualizarEvidenciaCaso(i, j, 'archivo', v)}
                     />
                     <TextField
                       size="small"
-                      label="Descripción"
+                      label="Descripci��n"
                       value={ev.descripcion}
                       onChange={(e) => actualizarEvidenciaCaso(i, j, 'descripcion', e.target.value)}
                       sx={{ flex: 1.5 }}
